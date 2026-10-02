@@ -86,7 +86,7 @@ export default function AdminImport() {
   return (
     <div>
       <p className="text-sm text-ks-sub mb-4 leading-relaxed">Base44からエクスポートしたCSVファイルを選ぶと、新しいアプリに取り込みます。何度実行しても同じデータが二重になることはありません。</p>
-      <Btn label="① 楽曲(Song_export.csv)を取り込む" onChange={songs} />
+      <Btn label="① オリジナル楽曲(Song_export.csv)を取り込む" onChange={songs} />
       <Btn label="② 課題曲(SongArchive_export.csv)を取り込む" onChange={archive} />
       <Btn label="③ バナー画像(AppSettings_export.csv)を取り込む" onChange={settings} />
       {busy && <p className="text-sm font-bold text-ks-red mb-2">取り込み中です。画面を閉じないでください。</p>}
