@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { FONT_SIZES, applyFontSize, getFontSize } from '../lib/fontSize';
 import { useApp } from './AppContext';
 import { Spinner } from './ui';
 
@@ -22,6 +23,11 @@ export default function Layout({ children, adminOnly = false, title }) {
     else if (adminOnly && !app.isAdmin) router.replace('/');
   }, [app.loading, app.status, app.isAdmin, adminOnly, router]);
 
+  const [fontOpen, setFontOpen] = useState(false);
+  const [font, setFont] = useState('normal');
+  useEffect(() => { setFont(getFontSize()); }, []);
+  const pickFont = (k) => { setFont(applyFontSize(k)); setFontOpen(false); };
+
   const ready = !app.loading && app.status === 'member' && (!adminOnly || app.isAdmin);
   const path = router.pathname;
 
@@ -36,9 +42,27 @@ export default function Layout({ children, adminOnly = false, title }) {
               <div className="text-[10px] text-ks-sub tracking-wider">門弟アプリ</div>
             </div>
           </Link>
-          {ready && app.isAdmin && (
-            <Link href="/admin" className={`px-3 py-1.5 rounded-full text-xs font-bold ${path === '/admin' ? 'bg-ks-gold text-white' : 'bg-ks-goldlight text-[#8A6B2E] border border-[#EBDDBE]'}`}>管理</Link>
-          )}
+          <div className="flex items-center gap-3 relative">
+            <button onClick={() => setFontOpen(!fontOpen)} aria-label="文字の拡大"
+              className={`px-3 py-1.5 rounded-full text-xs font-bold border ${font !== 'normal' ? 'bg-ks-text text-white border-ks-text' : 'bg-white text-ks-text border-ks-border'}`}>拡大🔎</button>
+            {ready && app.isAdmin && (
+              <Link href="/admin" className={`px-3 py-1.5 rounded-full text-xs font-bold ${path === '/admin' ? 'bg-ks-gold text-white' : 'bg-ks-goldlight text-[#8A6B2E] border border-[#EBDDBE]'}`}>管理</Link>
+            )}
+            {fontOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setFontOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 card shadow-lg p-2 w-44">
+                  <p className="text-xs text-ks-sub px-2 pt-1 pb-2">文字の大きさ</p>
+                  {FONT_SIZES.map((f) => (
+                    <button key={f.key} onClick={() => pickFont(f.key)}
+                      className={`w-full text-left px-3 py-2 rounded-lg font-bold flex items-center justify-between ${font === f.key ? 'bg-ks-goldlight' : ''}`}>
+                      <span style={{ fontSize: f.px }}>{f.label}</span>{font === f.key && <span className="text-ks-red">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </header>
         <main className="px-4 pt-4 pb-safe">
           {title && <h1 className="font-serif font-extrabold text-2xl mb-5 px-1">{title}</h1>}
