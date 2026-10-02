@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import { collection, getDocs, orderBy, query, limit, where } from 'firebase/firestore';
 import { db } from '../lib/firebaseClient';
 import Layout from '../components/Layout';
@@ -8,6 +9,7 @@ import AnnouncementList from '../components/Announcements';
 import { Section, Avatar, displayName, Empty } from '../components/ui';
 import { AI_NOTES } from '../lib/constants';
 import { fmtDate, youtubeId } from '../lib/utils';
+import { loadStats, topSongs } from '../lib/songStats';
 
 function Home() {
   const app = useApp();
@@ -18,7 +20,8 @@ function Home() {
   const [archive, setArchive] = useState([]);
   const [forum, setForum] = useState([]);
   const [unread, setUnread] = useState(0);
-  const [copied, setCopied] = useState(false);
+  const [popular, setPopular] = useState([]);
+  const router = useRouter();
 
   useEffect(() => {
     const load = async (q, set) => { try { const s = await getDocs(q); set(s.docs.map((d) => ({ id: d.id, ...d.data() }))); } catch (e) { console.error(e); } };
@@ -27,6 +30,7 @@ function Home() {
     load(query(collection(db, 'videos'), orderBy('order')), setVideos);
     load(query(collection(db, 'archive'), orderBy('createdAt', 'desc'), limit(3)), setArchive);
     load(query(collection(db, 'forumPosts'), orderBy('createdAt', 'desc'), limit(3)), setForum);
+    loadStats().then((st) => setPopular(topSongs(st, 3))).catch(console.error);
     getDocs(query(collection(db, 'messages'), where('to', '==', app.user.uid)))
       .then((s) => setUnread(s.docs.filter((d) => !d.data().read && !(d.data().hiddenFor || []).includes(app.user.uid)).length))
       .catch(console.error);
@@ -38,10 +42,6 @@ function Home() {
   const showReserve = day >= 15 && !priv.reminders[`${ym}-reserve`];
   const showPay = day >= 20 && !priv.reminders[`${ym}-pay`];
   const done = (key) => app.updatePriv({ reminders: { [`${ym}-${key}`]: true } });
-
-  const copyId = async () => {
-    try { await navigator.clipboard.writeText(settings.paypayId); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch (e) { /* noop */ }
-  };
 
   const archiveAuthor = (p) => memberMap[p.authorUid] || memberByEmail[(p.authorEmail || '').toLowerCase()] || null;
 
@@ -59,7 +59,7 @@ function Home() {
       </div>
 
       {unread > 0 && (
-        <Link href="/mypage#messages" className="block card px-4 py-3 mb-5 text-sm font-bold border-ks-gold">
+        <Link href="/mypage#messages" className="press block card px-4 py-3 mb-5 text-sm font-bold border-ks-gold">
           未読のメッセージが{unread}件あります
         </Link>
       )}
@@ -92,28 +92,23 @@ function Home() {
       </Section>
 
       <div className="space-y-4 mb-8">
-        <a href={settings.reserveUrl} target="_blank" rel="noreferrer" className="block rounded-[22px] bg-ks-red text-white p-5 shadow-md hover:bg-ks-redhover transition-colors">
+        <a href={settings.reserveUrl} target="_blank" rel="noreferrer" className="press block rounded-[22px] bg-ks-red text-white p-5 shadow-md">
           <p className="font-serif font-bold text-xl">レッスン/個人練習を予約する</p>
-          <p className="text-sm text-white/85 mt-1.5">予約はLINEから行います。押すと予約ページが開きます。</p>
+          <p className="text-sm text-white/90 mt-1.5">予約はLINEから行います。押すと予約ページが開きます。</p>
           <span className="inline-block mt-4 bg-white text-ks-red font-bold text-sm rounded-full px-5 py-2">予約ページを開く</span>
         </a>
-        <div className="rounded-[22px] bg-white border-2 border-ks-red p-5">
-          <p className="font-serif font-bold text-xl">月謝をPayPayで送金する</p>
-          <div className="flex items-center gap-2 mt-3 bg-ks-bg rounded-xl px-3 py-2.5">
-            <span className="text-xs text-ks-sub">送金先ID</span>
-            <span className="font-bold tracking-wide flex-1">{settings.paypayId}</span>
-            <button onClick={copyId} className="btn btn-ghost btn-sm">{copied ? 'コピーしました' : 'コピー'}</button>
-          </div>
-          <a href={settings.paypayUrl} className="btn w-full mt-3 text-white" style={{ background: '#FF0033' }}>PayPayアプリを開く</a>
-          <p className="text-[11px] text-ks-sub mt-2">アプリが開かない場合は、IDをコピーしてPayPayで送金してください。</p>
-        </div>
+        <a href={settings.paypayUrl} className="press block rounded-[22px] text-white p-5 shadow-md" style={{ background: '#A8843F' }}>
+          <p className="font-serif font-bold text-xl">月謝を支払う</p>
+          <p className="text-sm text-white/90 mt-1.5">月謝はPayPayを利用します。IDをコピーして送金してください。</p>
+          <span className="inline-block mt-4 bg-white font-bold text-sm rounded-full px-5 py-2" style={{ color: '#8A6B2E' }}>PayPayアプリを開く</span>
+        </a>
       </div>
 
       {apps.length > 0 && (
         <Section title="K's VOXのアプリ">
           <div className="grid grid-cols-2 gap-3">
             {apps.map((a) => (
-              <a key={a.id} href={a.url || '#'} target="_blank" rel="noreferrer" className="card p-3.5 flex flex-col" style={{ borderTop: `4px solid ${a.color || '#C5A059'}` }}>
+              <a key={a.id} href={a.url || '#'} target="_blank" rel="noreferrer" className="press card p-3.5 flex flex-col" style={{ borderTop: `4px solid ${a.color || '#C5A059'}` }}>
                 <div className="flex items-center gap-2 mb-2">
                   {a.icon ? <img src={a.icon} alt="" className="w-9 h-9 rounded-full object-cover" /> : <span className="w-9 h-9 rounded-full" style={{ background: a.color }} />}
                   <span className="font-bold text-sm leading-tight">{a.name}</span>
@@ -129,34 +124,53 @@ function Home() {
         </Section>
       )}
 
-      <Link href="/songs" className="block card p-5 mb-7">
-        <p className="font-serif font-bold text-lg">楽曲検索</p>
-        <p className="text-sm text-ks-sub mt-1">K's VOX RECORDのオリジナル英語曲をジャンル・雰囲気で検索し、歌詞をダウンロードできます。</p>
-      </Link>
+      <div role="link" tabIndex={0} className="press card p-5 mb-5 cursor-pointer" onClick={() => router.push('/songs')} onKeyDown={(e) => e.key === 'Enter' && router.push('/songs')}>
+        <p className="font-serif font-bold text-lg">オリジナル楽曲検索</p>
+        <p className="text-sm text-ks-sub mt-1 leading-relaxed">K's VOX RECORDのオリジナル英語曲をジャンル・雰囲気で検索し、歌詞をダウンロードできます。</p>
+        {popular.length > 0 && (
+          <div className="mt-4">
+            <p className="text-xs font-bold text-ks-sub mb-1.5">よくダウンロードされている曲</p>
+            <ul className="divide-y divide-ks-border border-t border-ks-border">
+              {popular.map((p) => (
+                <li key={p.id}><Link href={`/songs?q=${encodeURIComponent(p.title || '')}`} onClick={(e) => e.stopPropagation()} className="row block py-2.5 px-1 font-bold text-[15px] truncate">{p.title}</Link></li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
-      <Section title="最新の課題曲" right={<Link href="/archive" className="link">すべて見る</Link>}>
+      <div role="link" tabIndex={0} className="press card p-5 mb-5 cursor-pointer" onClick={() => router.push('/archive')} onKeyDown={(e) => e.key === 'Enter' && router.push('/archive')}>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="font-serif font-bold text-lg">私のおすすめ課題曲</p>
+          <span className="link shrink-0">すべて見る</span>
+        </div>
+        <p className="text-sm text-ks-sub mt-1 leading-relaxed">過去にレッスンで歌った課題曲を紹介。お互い課題曲選びの参考にしてください。</p>
         {archive.length ? (
-          <ul className="card divide-y divide-ks-border">
+          <ul className="mt-3 divide-y divide-ks-border border-t border-ks-border">
             {archive.map((p) => { const u = archiveAuthor(p); return (
-              <li key={p.id}><Link href={`/archive?post=${p.id}`} className="flex gap-3 items-center px-4 py-3">
-                <Avatar user={u} name={p.authorName} size={38} />
+              <li key={p.id}><Link href={`/archive?post=${p.id}`} onClick={(e) => e.stopPropagation()} className="row flex gap-3 items-center py-2.5 px-1">
+                <Avatar user={u} name={p.authorName} size={34} />
                 <span className="min-w-0">
-                  <span className="block text-xs text-ks-sub">{displayName(u, p.authorName)}</span>
                   <span className="block font-bold truncate">{p.title}</span>
-                  <span className="block text-xs text-ks-sub truncate">{p.artist}</span>
+                  <span className="block text-xs text-ks-sub truncate">{p.artist}・{displayName(u, p.authorName)}</span>
                 </span>
               </Link></li>
             ); })}
           </ul>
         ) : <Empty>まだ投稿がありません。</Empty>}
-      </Section>
+      </div>
 
-      <Section title="生徒フォーラム" right={<Link href="/forum" className="link">過去の投稿</Link>}>
+      <div role="link" tabIndex={0} className="press card p-5 mb-7 cursor-pointer" onClick={() => router.push('/forum')} onKeyDown={(e) => e.key === 'Enter' && router.push('/forum')}>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="font-serif font-bold text-lg">生徒フォーラム</p>
+          <span className="link shrink-0">すべて見る</span>
+        </div>
+        <p className="text-sm text-ks-sub mt-1 leading-relaxed">みんなへのお知らせや質問などを自由に投稿できます。10件を超えると古い投稿から削除されます。</p>
         {forum.length ? (
-          <ul className="card divide-y divide-ks-border">
+          <ul className="mt-3 divide-y divide-ks-border border-t border-ks-border">
             {forum.map((p) => { const u = memberMap[p.authorUid]; return (
-              <li key={p.id}><Link href={`/forum?post=${p.id}`} className="flex gap-3 items-center px-4 py-3">
-                <Avatar user={u} size={38} />
+              <li key={p.id}><Link href={`/forum?post=${p.id}`} onClick={(e) => e.stopPropagation()} className="row flex gap-3 items-center py-2.5 px-1">
+                <Avatar user={u} size={34} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-2 text-xs text-ks-sub"><span className="badge">{p.category}</span>{displayName(u)}・{fmtDate(p.createdAt)}</span>
                   <span className="block font-bold truncate mt-0.5">{p.title}</span>
@@ -165,7 +179,7 @@ function Home() {
             ); })}
           </ul>
         ) : <Empty>まだ投稿がありません。</Empty>}
-      </Section>
+      </div>
 
       {videos.length > 0 && (
         <Section title="レッスン備忘録">

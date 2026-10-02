@@ -18,3 +18,12 @@ textarea.input { min-height: 110px; line-height: 1.7; }
 .pb-safe { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
 :focus-visible { outline: 2px solid #C5A059; outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* 押せる場所:押すと(PCではマウスを乗せると)少し暗くなる */
+.press, a.card, button.card { transition: filter .12s ease; }
+.press:active, a.card:active, button.card:active { filter: brightness(.9); }
+@media (hover: hover) { .press:hover, a.card:hover, button.card:hover { filter: brightness(.95); } }
+.row, .card > li > a, .card > li > button { transition: background-color .12s ease; border-radius: 10px; }
+.row:active, .card > li > a:active, .card > li > button:active { background-color: rgba(44, 40, 37, .08); }
+@media (hover: hover) { .row:hover, .card > li > a:hover, .card > li > button:hover { background-color: rgba(44, 40, 37, .045); } }
+.press .row:active { filter: none; }

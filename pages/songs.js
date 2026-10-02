@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/router';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebaseClient';
 import Layout from '../components/Layout';
@@ -7,6 +8,7 @@ import { Chip, Empty, Spinner } from '../components/ui';
 import { GENRES, VOCALS, MOODS } from '../lib/constants';
 import { loadPdfBlob } from '../lib/songPdf';
 import { downloadBlob, safeFileName } from '../lib/utils';
+import { hashEmail, loadStats, recordDownload } from '../lib/songStats';
 
 const GENRE_COLOR = { 'ポップス': '#F9E1E6', 'ロック': '#E7E3F4', 'カントリー': '#FBEFD5', 'R&B': '#E2EEF6', 'HipHop': '#EDE2F6', 'エレクトロ': '#DDF1EE', 'ブルース': '#DFE6F5', 'フォーク': '#E1F2E1', 'ラテン': '#FCE6D9', 'ソウル': '#F4E3DA', 'ディスコ': '#F8E0F0', 'バラード': '#EAE6DF', 'その他': '#EEEEEE' };
 
@@ -14,8 +16,10 @@ function toggle(list, v) { return list.includes(v) ? list.filter((x) => x !== v)
 
 function Songs() {
   const app = useApp();
+  const router = useRouter();
   const [songs, setSongs] = useState(null);
   const [q, setQ] = useState('');
+  const [mineFromStats, setMineFromStats] = useState({});
   const [genres, setGenres] = useState([]);
   const [vocal, setVocal] = useState('');
   const [moods, setMoods] = useState([]);
@@ -23,6 +27,15 @@ function Songs() {
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
 
+  useEffect(() => { if (router.query.q) setQ(String(router.query.q)); }, [router.query.q]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const [h, stats] = await Promise.all([hashEmail(app.user.email), loadStats()]);
+        setMineFromStats(Object.fromEntries(stats.filter((x) => (x.users || []).includes(h)).map((x) => [x.id, true])));
+      } catch (e) { console.error(e); }
+    })();
+  }, [app.user.email]);
   useEffect(() => {
     getDocs(collection(db, 'songs')).then((s) => setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
   }, []);
@@ -45,6 +58,7 @@ function Songs() {
       const blob = await loadPdfBlob(s.id);
       downloadBlob(blob, safeFileName(s.title) + '.pdf');
       await app.updatePriv({ downloaded: { [s.id]: Date.now() } });
+      recordDownload(s, app.user.email).catch(console.error);
     } catch (e) { setErr(e.message); }
     setBusy('');
   }
@@ -71,7 +85,7 @@ function Songs() {
       {!filtered.length ? <Empty>条件に合う曲がありません。</Empty> : (
         <div className="space-y-3">
           {filtered.map((s) => {
-            const dl = app.priv.downloaded[s.id];
+            const dl = app.priv.downloaded[s.id] || mineFromStats[s.id];
             return (
               <article key={s.id} className="card p-4">
                 <div className="flex flex-wrap items-center gap-2">

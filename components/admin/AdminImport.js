@@ -3,6 +3,7 @@ import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore'
 import { db, api } from '../../lib/firebaseClient';
 import { useApp } from '../AppContext';
 import { compressImage, parseCSV, parseList } from '../../lib/utils';
+import { hashEmail } from '../../lib/songStats';
 
 const readText = (file) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsText(file, 'utf-8'); });
 
@@ -81,6 +82,43 @@ export default function AdminImport() {
     e.target.value = ''; setBusy(false);
   }
 
+  // Base44のダウンロード記録から、曲ごとの人数を作る(同じ人は1回)
+  async function history(e) {
+    const f = e.target.files?.[0]; if (!f) return;
+    setBusy(true); setLog([]);
+    try {
+      const all = parseCSV(await readText(f));
+      if (!all.length) throw new Error('データがありません。');
+      const cols = Object.keys(all[0]);
+      const pick = (names) => cols.find((c) => names.includes(c));
+      const songCol = pick(['song_id', 'songId', 'song']);
+      const userCol = pick(['user_email', 'userEmail', 'email', 'created_by', 'user_id', 'userId']);
+      const dateCol = pick(['downloaded_at', 'download_date', 'created_date']);
+      if (!songCol || !userCol) throw new Error(`このファイルはダウンロード記録(DownloadHistory_export.csv)ではないようです。列:${cols.join(', ')}`);
+      const songs = await getDocs(collection(db, 'songs'));
+      const titles = Object.fromEntries(songs.docs.map((d) => [d.id, d.data().title]));
+      const agg = {};
+      let skipped = 0;
+      for (const r of all) {
+        const sid = r[songCol]; const who = r[userCol];
+        if (!sid || !who || !titles[sid]) { skipped++; continue; }
+        const a = (agg[sid] = agg[sid] || { users: new Set(), last: 0 });
+        a.users.add(await hashEmail(who));
+        const t = dateCol && r[dateCol] ? new Date(r[dateCol]).getTime() : 0;
+        if (t > a.last) a.last = t;
+      }
+      const exist = await getDocs(collection(db, 'songStats'));
+      const cur = Object.fromEntries(exist.docs.map((d) => [d.id, d.data()]));
+      for (const [sid, a] of Object.entries(agg)) {
+        const users = Array.from(new Set([...(cur[sid]?.users || []), ...a.users]));
+        const prevLast = cur[sid]?.last?.seconds ? cur[sid].last.seconds * 1000 : 0;
+        await setDoc(doc(db, 'songStats', sid), { title: titles[sid], users, count: users.length, last: new Date(Math.max(prevLast, a.last || Date.now())) });
+      }
+      add(`${Object.keys(agg).length}曲分のダウンロード記録を取り込みました。${skipped ? `(曲が見つからない等で読み飛ばした行:${skipped})` : ''}`);
+    } catch (ex) { add('エラー:' + ex.message); }
+    e.target.value = ''; setBusy(false);
+  }
+
   // ②で楽曲CSVを読み込んでしまった場合の後片付け(投稿者のない取り込みデータだけを削除)
   async function cleanup() {
     const s = await getDocs(collection(db, 'archive'));
@@ -105,6 +143,7 @@ export default function AdminImport() {
       <Btn label="① 楽曲(Song_export.csv)を取り込む" onChange={songs} />
       <Btn label="② 課題曲(SongArchive_export.csv)を取り込む" onChange={archive} />
       <Btn label="③ バナー画像(AppSettings_export.csv)を取り込む" onChange={settings} />
+      <Btn label="④ ダウンロード記録(DownloadHistory_export.csv)を取り込む" onChange={history} />
       <button className="btn btn-ghost btn-sm w-full mb-4 text-ks-red" disabled={busy} onClick={cleanup}>課題曲アーカイブに誤って入った楽曲データを削除する</button>
       {busy && <p className="text-sm font-bold text-ks-red mb-2">取り込み中です。画面を閉じないでください。</p>}
       {log.length > 0 && <pre className="text-xs whitespace-pre-wrap bg-white border border-ks-border rounded-xl p-3 font-sans leading-relaxed">{log.join('\n')}</pre>}
