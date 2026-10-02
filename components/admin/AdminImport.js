@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, setDoc } from 'firebase/firestore';
 import { db, api } from '../../lib/firebaseClient';
 import { useApp } from '../AppContext';
 import { compressImage, parseCSV, parseList } from '../../lib/utils';
@@ -16,7 +16,9 @@ export default function AdminImport() {
     const f = e.target.files?.[0]; if (!f) return;
     setBusy(true); setLog([]);
     try {
-      const rows = parseCSV(await readText(f)).filter((r) => r.id && r.title);
+      const all = parseCSV(await readText(f));
+      if (!all.length || !('lyrics_pdf_url' in all[0])) throw new Error('このファイルは楽曲のCSV(Song_export.csv)ではありません。');
+      const rows = all.filter((r) => r.id && r.title);
       add(`${rows.length}曲を取り込みます。画面を閉じずにお待ちください。`);
       let ok = 0; const ng = [];
       for (let i = 0; i < rows.length; i++) {
@@ -40,7 +42,9 @@ export default function AdminImport() {
     const f = e.target.files?.[0]; if (!f) return;
     setBusy(true); setLog([]);
     try {
-      const rows = parseCSV(await readText(f)).filter((r) => r.title);
+      const all = parseCSV(await readText(f));
+      if (!all.length || !('author_name' in all[0])) throw new Error('このファイルは課題曲のCSV(SongArchive_export.csv)ではありません。');
+      const rows = all.filter((r) => r.title);
       const exist = await getDocs(collection(db, 'archive'));
       const done = new Set(exist.docs.map((d) => d.data().importId).filter(Boolean));
       let n = 0;
@@ -77,6 +81,18 @@ export default function AdminImport() {
     e.target.value = ''; setBusy(false);
   }
 
+  // ②で楽曲CSVを読み込んでしまった場合の後片付け(投稿者のない取り込みデータだけを削除)
+  async function cleanup() {
+    const s = await getDocs(collection(db, 'archive'));
+    const wrong = s.docs.filter((d) => { const v = d.data(); return v.importId && !v.authorName && !v.authorEmail && !v.authorUid; });
+    if (!wrong.length) { setLog(['誤って取り込まれたデータは見つかりませんでした。']); return; }
+    if (!confirm(`課題曲アーカイブに誤って入った ${wrong.length} 件を削除します。よろしいですか?`)) return;
+    setBusy(true); setLog([]);
+    for (const d of wrong) await deleteDoc(d.ref);
+    setLog([`${wrong.length}件を削除しました。課題曲アーカイブには本来の投稿だけが残っています。`]);
+    setBusy(false);
+  }
+
   const Btn = ({ label, onChange }) => (
     <label className={`btn btn-ghost w-full mb-3 cursor-pointer ${busy ? 'opacity-50 pointer-events-none' : ''}`}>{label}
       <input type="file" accept=".csv,text/csv" className="hidden" onChange={onChange} disabled={busy} />
@@ -86,9 +102,10 @@ export default function AdminImport() {
   return (
     <div>
       <p className="text-sm text-ks-sub mb-4 leading-relaxed">Base44からエクスポートしたCSVファイルを選ぶと、新しいアプリに取り込みます。何度実行しても同じデータが二重になることはありません。</p>
-      <Btn label="① オリジナル楽曲(Song_export.csv)を取り込む" onChange={songs} />
+      <Btn label="① 楽曲(Song_export.csv)を取り込む" onChange={songs} />
       <Btn label="② 課題曲(SongArchive_export.csv)を取り込む" onChange={archive} />
       <Btn label="③ バナー画像(AppSettings_export.csv)を取り込む" onChange={settings} />
+      <button className="btn btn-ghost btn-sm w-full mb-4 text-ks-red" disabled={busy} onClick={cleanup}>課題曲アーカイブに誤って入った楽曲データを削除する</button>
       {busy && <p className="text-sm font-bold text-ks-red mb-2">取り込み中です。画面を閉じないでください。</p>}
       {log.length > 0 && <pre className="text-xs whitespace-pre-wrap bg-white border border-ks-border rounded-xl p-3 font-sans leading-relaxed">{log.join('\n')}</pre>}
     </div>
