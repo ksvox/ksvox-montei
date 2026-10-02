@@ -1,0 +1,20 @@
+html, body { background: #EFECE6; color: #2C2825; font-family: 'Zen Kaku Gothic New', sans-serif; -webkit-tap-highlight-color: transparent; }
+body { min-height: 100vh; }
+.input { width: 100%; border: 1px solid #EDE8E1; background: #fff; border-radius: 12px; padding: 10px 14px; font-size: 16px; outline: none; }
+.input:focus { border-color: #C5A059; box-shadow: 0 0 0 3px rgba(197,160,89,.18); }
+textarea.input { min-height: 110px; line-height: 1.7; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 999px; padding: 11px 20px; font-weight: 700; font-size: 15px; transition: background .15s, opacity .15s; }
+.btn:disabled { opacity: .5; }
+.btn-primary { background: #E54D26; color: #fff; }
+.btn-primary:hover { background: #C93C18; }
+.btn-dark { background: #2C2825; color: #fff; }
+.btn-ghost { background: #fff; color: #2C2825; border: 1px solid #EDE8E1; }
+.btn-ghost:hover { border-color: #C5A059; }
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+.card { background: #fff; border: 1px solid #EDE8E1; border-radius: 18px; }
+.link { color: #C93C18; font-weight: 700; font-size: 13px; }
+.seal { display: inline-block; font-family: 'Shippori Mincho', serif; font-weight: 800; font-size: 11px; letter-spacing: .08em; color: #C93C18; border: 1.5px solid #E54D26; border-radius: 4px; padding: 1px 6px; transform: rotate(-2deg); background: #fff; white-space: nowrap; }
+.badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #F8F3E8; color: #8A6B2E; border: 1px solid #EBDDBE; }
+.pb-safe { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+:focus-visible { outline: 2px solid #C5A059; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

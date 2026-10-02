@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function myEmail() { return request.auth.token.email.lower(); }
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(me())); }
+    function isMember() {
+      return signedIn() && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/roster/$(myEmail()));
+    }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // 名簿・管理者(名簿は先生だけ、管理者はサーバーだけが書き込む)
+    match /roster/{email} { allow read, write: if isAdmin(); }
+    match /admins/{uid} { allow read: if signedIn() && me() == uid; allow write: if false; }
+
+    // 会員プロフィール(門弟同士で閲覧可、本人はプロフィール項目だけ変更可)
+    match /users/{uid} {
+      allow read: if isMember();
+      allow update: if isAdmin()
+        || (isMember() && me() == uid && onlyChanges(['realName', 'nickname', 'phone', 'birthday', 'icon', 'updatedAt']));
+      allow create, delete: if false;
+
+      match /private/{docId} { allow read, write: if isMember() && me() == uid; }
+      match /events/{eventId} { allow read, write: if isMember() && me() == uid; }
+      match /vault/{itemId} { allow read, write: if isMember() && me() == uid; }
+    }
+
+    // 先生だけが書き込むもの
+    match /settings/{docId} { allow read: if isMember(); allow write: if isAdmin(); }
+    match /announcements/{id} { allow read: if isMember(); allow write: if isAdmin(); }
+    match /appLinks/{id} { allow read: if isMember(); allow write: if isAdmin(); }
+    match /videos/{id} { allow read: if isMember(); allow write: if isAdmin(); }
+    match /songs/{songId} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+      match /pdf/{chunk} { allow read: if isMember(); allow write: if isAdmin(); }
+    }
+
+    // 課題曲アーカイブ
+    match /archive/{id} {
+      function isAuthor() {
+        return resource.data.get('authorUid', '') == me()
+          || (resource.data.get('authorEmail', '') != '' && resource.data.get('authorEmail', '') == myEmail());
+      }
+      allow read: if isMember();
+      allow create: if isAdmin() || (isMember() && request.resource.data.authorUid == me());
+      allow update, delete: if isAdmin() || (isMember() && isAuthor());
+    }
+
+    // 生徒フォーラム
+    match /forumPosts/{postId} {
+      allow read: if isMember();
+      allow create: if isMember() && request.resource.data.authorUid == me();
+      allow update: if isAdmin()
+        || (isMember() && resource.data.authorUid == me())
+        || (isMember() && onlyChanges(['replyCount']));
+      allow delete: if isAdmin() || (isMember() && resource.data.authorUid == me());
+
+      match /replies/{replyId} {
+        allow read: if isMember();
+        allow create: if isMember() && request.resource.data.authorUid == me();
+        allow update: if isMember() && resource.data.authorUid == me();
+        allow delete: if isAdmin() || (isMember() && (resource.data.authorUid == me()
+          || get(/databases/$(database)/documents/forumPosts/$(postId)).data.authorUid == me()));
+      }
+    }
+
+    // マイメッセージ(送った人と受け取った人だけ)
+    match /messages/{id} {
+      function party() { return resource.data.from == me() || resource.data.to == me(); }
+      allow read: if isMember() && party();
+      allow create: if isMember() && request.resource.data.from == me();
+      allow update: if isMember() && party() && onlyChanges(['read', 'hiddenFor']);
+      allow delete: if isMember() && party();
+    }
+  }
+}
