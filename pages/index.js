@@ -115,10 +115,10 @@ function Home() {
           <p className="text-sm text-white/90 mt-1.5">予約はLINEから行います。押すと予約ページが開きます。</p>
           <span className="inline-block mt-4 bg-white text-ks-red font-bold text-sm rounded-full px-5 py-2">予約ページを開く</span>
         </a>
-        <a href={settings.paypayUrl} className="press block rounded-[22px] text-white p-5 shadow-md" style={{ background: '#A8843F' }}>
+        <a href={settings.paypayUrl} className="press block rounded-[22px] text-white p-5 shadow-md" style={{ background: '#2A7F86' }}>
           <p className="font-serif font-bold text-xl">月謝を支払う</p>
           <p className="text-sm text-white/90 mt-1.5">月謝はPayPayを利用します。アプリを開いたら『送る』から、ID『nobu_ksvox』宛てに送金してください。</p>
-          <span className="inline-block mt-4 bg-white font-bold text-sm rounded-full px-5 py-2" style={{ color: '#8A6B2E' }}>PayPayアプリを開く</span>
+          <span className="inline-block mt-4 bg-white font-bold text-sm rounded-full px-5 py-2" style={{ color: '#3D2C5A' }}>PayPayアプリを開く</span>
         </a>
       </div>
 
