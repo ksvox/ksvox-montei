@@ -39,6 +39,14 @@ service cloud.firestore {
       match /pdf/{chunk} { allow read: if isMember(); allow write: if isAdmin(); }
     }
 
+    // 楽曲のダウンロード数(人数)。会員は数の追加だけできる
+    match /songStats/{songId} {
+      allow read: if isMember();
+      allow create, update: if isAdmin()
+        || (isMember() && request.resource.data.keys().hasOnly(['count', 'users', 'last', 'title']));
+      allow delete: if isAdmin();
+    }
+
     // 課題曲アーカイブ
     match /archive/{id} {
       function isAuthor() {
