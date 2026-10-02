@@ -1,5 +1,12 @@
-import { adminAuth, adminDb, ADMIN_EMAIL, handle, FieldValue } from '../../lib/firebaseAdmin';
+import { adminAuth, adminDb, ADMIN_EMAIL, handle, FieldValue, getOrigin } from '../../lib/firebaseAdmin';
 import { sendMail, SIGNATURE } from '../../lib/mailer';
+
+// Firebase標準の確認画面ではなく、門弟アプリ内の日本語ページへ案内するリンクを作る
+export async function makeVerifyLink(req, email) {
+  const raw = await adminAuth().generateEmailVerificationLink(email);
+  const code = new URL(raw).searchParams.get('oobCode');
+  return `${getOrigin(req)}/verify?oobCode=${encodeURIComponent(code)}`;
+}
 
 export function verifyMailText(link) {
   return `門弟アプリへのご登録ありがとうございます。
@@ -45,7 +52,7 @@ export default handle(async (req) => {
   await rosterRef.update({ uid: user.uid, registeredAt: FieldValue.serverTimestamp() });
   if (email === ADMIN_EMAIL) await db.collection('admins').doc(user.uid).set({ email });
 
-  const link = await auth.generateEmailVerificationLink(email);
+  const link = await makeVerifyLink(req, email);
   await sendMail({ to: email, subject: "【K's VOX 門弟アプリ】ご登録の確認", text: verifyMailText(link) });
   return { ok: true };
 });

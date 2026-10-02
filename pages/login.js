@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, api } from '../lib/firebaseClient';
 import { useApp } from '../components/AppContext';
 
@@ -24,6 +24,7 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { if (!app.loading && app.status === 'member') router.replace('/'); }, [app.loading, app.status, router]);
+  useEffect(() => { if (router.query.mode === 'login') setMode('login'); }, [router.query.mode]);
 
   const go = (m) => { setMode(m); setErr(''); setMsg(''); };
 
@@ -45,8 +46,8 @@ export default function Login() {
   }
   async function reset(e) {
     e.preventDefault(); setErr(''); setBusy(true);
-    try { await sendPasswordResetEmail(auth, email.trim()); setMsg('パスワード再設定のメールを送りました。メール内のリンクから新しいパスワードを設定してください。'); }
-    catch (ex) { setErr(ERR[ex.code] || '送信できませんでした。'); }
+    try { await api('/api/reset-password', { email: email.trim() }); setMsg('登録されているメールアドレスであれば、パスワード再設定のメールを送りました。メール内のリンクから新しいパスワードを設定してください。'); }
+    catch (ex) { setErr(ex.message || '送信できませんでした。'); }
     setBusy(false);
   }
   async function resend() {
