@@ -88,7 +88,7 @@ function Home() {
             <div className="rounded-2xl bg-ks-goldlight border border-[#EBDDBE] p-4">
               <p className="font-bold mb-3">今月のレッスン予約はしましたか?</p>
               <div className="flex gap-2">
-                <button className="btn btn-dark btn-sm flex-1" onClick={() => done('reserve')}>しました👍</button>
+                <button className="btn btn-dark btn-sm flex-1" onClick={() => done('reserve')}>予約しました👍</button>
                 <a className="btn btn-ghost btn-sm flex-1" href={settings.reserveUrl} target="_blank" rel="noreferrer">まだです😓</a>
               </div>
             </div>
@@ -117,7 +117,7 @@ function Home() {
         </a>
         <a href={settings.paypayUrl} className="press block rounded-[22px] text-white p-5 shadow-md" style={{ background: '#A8843F' }}>
           <p className="font-serif font-bold text-xl">月謝を支払う</p>
-          <p className="text-sm text-white/90 mt-1.5">月謝はPayPayを利用します。IDをコピーして送金してください。</p>
+          <p className="text-sm text-white/90 mt-1.5">月謝はPayPayを利用します。アプリを開いたら『送る』から、ID『nobu_ksvox』宛てに送金してください。</p>
           <span className="inline-block mt-4 bg-white font-bold text-sm rounded-full px-5 py-2" style={{ color: '#8A6B2E' }}>PayPayアプリを開く</span>
         </a>
       </div>
