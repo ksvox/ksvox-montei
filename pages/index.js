@@ -118,7 +118,7 @@ function Home() {
         <a href={settings.paypayUrl} className="press block rounded-[22px] text-white p-5 shadow-md" style={{ background: '#2A7F86' }}>
           <p className="font-serif font-bold text-xl">月謝を支払う</p>
           <p className="text-sm text-white/90 mt-1.5">月謝はPayPayを利用します。アプリを開いたら『送る』から、ID『nobu_ksvox』宛てに送金してください。</p>
-          <span className="inline-block mt-4 bg-white font-bold text-sm rounded-full px-5 py-2" style={{ color: '#3D2C5A' }}>PayPayアプリを開く</span>
+          <span className="inline-block mt-4 bg-white font-bold text-sm rounded-full px-5 py-2" style={{ color: '#2A7F86' }}>PayPayアプリを開く</span>
         </a>
       </div>
 
