@@ -33,6 +33,7 @@ service cloud.firestore {
     match /announcements/{id} { allow read: if isMember(); allow write: if isAdmin(); }
     match /appLinks/{id} { allow read: if isMember(); allow write: if isAdmin(); }
     match /videos/{id} { allow read: if isMember(); allow write: if isAdmin(); }
+    match /dojoEvents/{id} { allow read: if isMember(); allow write: if isAdmin(); }
     match /songs/{songId} {
       allow read: if isMember();
       allow write: if isAdmin();

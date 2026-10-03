@@ -8,9 +8,10 @@ import AdminRoster from '../components/admin/AdminRoster';
 import AdminLinks from '../components/admin/AdminLinks';
 import AdminSettings from '../components/admin/AdminSettings';
 import AdminImport from '../components/admin/AdminImport';
+import AdminDojo from '../components/admin/AdminDojo';
 
 const TABS = [
-  ['news', 'お知らせ'], ['roster', '会員名簿'], ['songs', '楽曲管理'], ['posts', '投稿管理'],
+  ['news', 'お知らせ'], ['dojo', '道場カレンダー'], ['roster', '会員名簿'], ['songs', '楽曲管理'], ['posts', '投稿管理'],
   ['videos', '動画'], ['apps', 'アプリ'], ['settings', '設定'], ['import', '引っ越し'],
 ];
 
@@ -22,6 +23,7 @@ function Admin() {
         {TABS.map(([k, l]) => <span key={k} className="shrink-0"><Chip active={tab === k} onClick={() => setTab(k)}>{l}</Chip></span>)}
       </div>
       {tab === 'news' && <AdminNews />}
+      {tab === 'dojo' && <AdminDojo />}
       {tab === 'roster' && <AdminRoster />}
       {tab === 'songs' && <AdminSongs />}
       {tab === 'posts' && <AdminPosts />}
