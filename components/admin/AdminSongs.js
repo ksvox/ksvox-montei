@@ -5,12 +5,12 @@ import { Chip, Field, Modal, Empty } from '../ui';
 import { GENRES, VOCALS, MOODS } from '../../lib/constants';
 import { savePdf } from '../../lib/songPdf';
 import { fileToBase64, normKey } from '../../lib/utils';
-import { isTagged, hasYoutube, youtubeFields } from '../../lib/showcaseTags';
+import { isTagged, hasYoutube, youtubeFields, releaseList, releaseFromTitle } from '../../lib/showcaseTags';
 import ShowcaseFields from './ShowcaseFields';
 import SongTagger from './SongTagger';
 import YoutubeMatcher from './YoutubeMatcher';
 
-const blank = { title: '', recommended: false, easy: false, songUrl: '', genres: [], vocal: '', moods: [], range: '', sounds: [], vibes: [], tempo: '', youtubeUrl: '', draft: false };
+const blank = { title: '', recommended: false, easy: false, songUrl: '', genres: [], vocal: '', moods: [], range: '', sounds: [], vibes: [], tempo: '', youtubeUrl: '', draft: false, release: '' };
 const tg = (l, v) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]);
 
 export default function AdminSongs() {
@@ -27,14 +27,14 @@ export default function AdminSongs() {
   const load = async () => { const s = await getDocs(collection(db, 'songs')); setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.title.localeCompare(b.title))); };
   useEffect(() => { load(); }, []);
   const list = useMemo(() => songs.filter((s) => (!q || s.title.toLowerCase().includes(q.toLowerCase()))
-    && (filter === 'all' || (filter === 'tag' && !isTagged(s)) || (filter === 'yt' && !hasYoutube(s)) || (filter === 'draft' && s.draft))), [songs, q, filter]);
+    && (filter === 'all' || (filter === 'tag' && !isTagged(s)) || (filter === 'yt' && !hasYoutube(s)) || (filter === 'draft' && s.draft) || (filter === 'release' && !s.release))), [songs, q, filter]);
   // 連続タグ付け・YouTube照合で保存した内容を一覧にも反映
   const patch = (id, data) => setSongs((l) => l.map((s) => (s.id === id ? { ...s, ...data } : s)));
 
   async function save() {
     setBusy('save');
     const data = { title: form.title.trim(), recommended: form.recommended, easy: form.easy, songUrl: form.songUrl.trim(), genres: form.genres, vocal: form.vocal, moods: form.moods, range: form.range.trim(),
-      sounds: form.sounds || [], vibes: form.vibes || [], tempo: form.tempo || '', ...youtubeFields(form.youtubeUrl), draft: !!form.draft };
+      sounds: form.sounds || [], vibes: form.vibes || [], tempo: form.tempo || '', ...youtubeFields(form.youtubeUrl), draft: !!form.draft, release: (form.release || '').trim() };
     try {
       let id = form.id;
       if (id) await updateDoc(doc(db, 'songs', id), data);
@@ -65,6 +65,21 @@ export default function AdminSongs() {
     e.target.value = ''; setBusy(''); await load();
   }
 
+  // 曲名の「-(EPタイトル)」から収録作品をまとめて入力(入力済みの曲は変更しない)
+  const autoRelease = songs.filter((s) => !s.release && releaseFromTitle(s.title));
+  async function fillRelease() {
+    if (!confirm(`曲名から収録作品を${autoRelease.length}曲に自動入力しますか?`)) return;
+    setBusy('release');
+    try {
+      for (const s of autoRelease) {
+        const release = releaseFromTitle(s.title);
+        await updateDoc(doc(db, 'songs', s.id), { release });
+        patch(s.id, { release });
+      }
+    } catch (e) { alert('入力できませんでした:' + e.message); }
+    setBusy('');
+  }
+
   return (
     <div>
       <div className="flex gap-2 mb-3">
@@ -77,7 +92,12 @@ export default function AdminSongs() {
       {report && <p className="text-xs whitespace-pre-wrap bg-white border border-ks-border rounded-xl p-3 mb-3">{report}</p>}
       <div className="card p-3 mb-3">
         <p className="text-sm font-bold mb-1">ショーケース用の準備</p>
-        <p className="text-xs text-ks-sub mb-2">タグ未完了:{songs.filter((s) => !isTagged(s)).length}曲 / YouTube未登録:{songs.filter((s) => !hasYoutube(s)).length}曲</p>
+        <p className="text-xs text-ks-sub mb-2">タグ未完了:{songs.filter((s) => !isTagged(s)).length}曲 / YouTube未登録:{songs.filter((s) => !hasYoutube(s)).length}曲 / 収録作品未入力:{songs.filter((s) => !s.release).length}曲</p>
+        {autoRelease.length > 0 && (
+          <button className="btn btn-ghost btn-sm w-full mb-2" disabled={!!busy} onClick={fillRelease}>
+            {busy === 'release' ? '入力中…' : `曲名から収録作品を自動入力(${autoRelease.length}曲)`}
+          </button>
+        )}
         <div className="flex gap-2">
           <button className="btn btn-ghost btn-sm flex-1" onClick={() => setMatcher(true)}>YouTube自動照合</button>
           <button className="btn btn-dark btn-sm flex-1" onClick={() => setTagger(true)}>連続タグ付けモード</button>
@@ -90,6 +110,7 @@ export default function AdminSongs() {
           <option value="tag">タグ未完了だけ</option>
           <option value="yt">YouTube未登録だけ</option>
           <option value="draft">準備中だけ</option>
+          <option value="release">収録作品未入力だけ</option>
         </select>
       </div>
       {!list.length ? <Empty>曲がありません。</Empty> : (
@@ -124,7 +145,7 @@ export default function AdminSongs() {
             <Field label="音域レンジ"><input className="input" placeholder="例:A2-A4" value={form.range} onChange={(e) => setForm({ ...form, range: e.target.value })} /></Field>
             <div className="border-t border-ks-border pt-4 mt-2 mb-2">
               <p className="text-sm font-bold mb-3">ショーケース用</p>
-              <ShowcaseFields form={form} setForm={setForm} />
+              <ShowcaseFields form={form} setForm={setForm} releases={releaseList(songs)} />
             </div>
             <Field label="歌詞PDF" note={form.hasPdf ? '登録済み。選び直すと差し替えます。' : '未登録'}><input type="file" accept="application/pdf" className="block w-full text-sm" onChange={(e) => setPdf(e.target.files?.[0] || null)} /></Field>
             <div className="flex gap-2">

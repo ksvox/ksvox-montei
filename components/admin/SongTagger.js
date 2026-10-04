@@ -4,9 +4,9 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebaseClient';
 import { Modal } from '../ui';
 import ShowcaseFields, { YoutubePreview } from './ShowcaseFields';
-import { isTagged, youtubeFields } from '../../lib/showcaseTags';
+import { isTagged, youtubeFields, releaseList, releaseFromTitle } from '../../lib/showcaseTags';
 
-const pick = (s) => ({ vocal: s.vocal || '', sounds: s.sounds || [], vibes: s.vibes || [], tempo: s.tempo || '', youtubeUrl: s.youtubeUrl || '' });
+const pick = (s) => ({ vocal: s.vocal || '', sounds: s.sounds || [], vibes: s.vibes || [], tempo: s.tempo || '', youtubeUrl: s.youtubeUrl || '', release: s.release || releaseFromTitle(s.title) });
 
 export default function SongTagger({ open, onClose, songs, onSaved }) {
   const [onlyTodo, setOnlyTodo] = useState(true);
@@ -26,7 +26,7 @@ export default function SongTagger({ open, onClose, songs, onSaved }) {
     if (!song || !cur) return;
     setBusy(true);
     try {
-      const data = { vocal: cur.vocal, sounds: cur.sounds, vibes: cur.vibes, tempo: cur.tempo, ...youtubeFields(cur.youtubeUrl) };
+      const data = { vocal: cur.vocal, sounds: cur.sounds, vibes: cur.vibes, tempo: cur.tempo, release: (cur.release || '').trim(), ...youtubeFields(cur.youtubeUrl) };
       await updateDoc(doc(db, 'songs', song.id), data);
       onSaved && onSaved(song.id, data);
       go(i + 1);
@@ -65,7 +65,7 @@ export default function SongTagger({ open, onClose, songs, onSaved }) {
               YouTube URLが未登録です。{song.songUrl && <a className="underline text-ks-text ml-1" href={song.songUrl} target="_blank" rel="noreferrer">楽曲ページで聴く</a>}
             </div>
           )}
-          <ShowcaseFields form={cur} setForm={setCur} showVocal showYoutube={!song.youtubeId} />
+          <ShowcaseFields form={cur} setForm={setCur} showVocal showYoutube={!song.youtubeId} releases={releaseList(songs)} />
           <div className="flex gap-2 sticky bottom-0 bg-ks-bg pt-2">
             <button className="btn btn-ghost btn-sm" disabled={i === 0 || busy} onClick={() => go(i - 1)}>← 前へ</button>
             <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => go(i + 1)}>スキップ</button>

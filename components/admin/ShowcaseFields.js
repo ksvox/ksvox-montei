@@ -23,9 +23,14 @@ export function YoutubePreview({ url, id }) {
   );
 }
 
-export default function ShowcaseFields({ form, setForm, showVocal = false, showYoutube = true }) {
+export default function ShowcaseFields({ form, setForm, showVocal = false, showYoutube = true, releases = [] }) {
   return (
     <div>
+      <Group title="収録作品(EP・アルバム名)" note="ショーケースで同じ作品の曲が偏らないように使います">
+        <input className="input" list="ks-release-list" placeholder="例:For Better, For Us" value={form.release || ''}
+          onChange={(e) => setForm({ ...form, release: e.target.value })} />
+        <datalist id="ks-release-list">{releases.map((r) => <option key={r} value={r} />)}</datalist>
+      </Group>
       {showYoutube && (
         <Group title="YouTube URL" note="「K's VOX - Topic」の動画">
           <input className="input mb-2" placeholder="https://www.youtube.com/watch?v=…" value={form.youtubeUrl || ''}
