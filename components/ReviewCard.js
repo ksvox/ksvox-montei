@@ -1,6 +1,6 @@
 import { reviewDate } from '../lib/reviews';
 
-const SECTIONS = [['done', '今日やったこと'], ['next', '次回・宿題']];
+const SECTIONS = [['done', '今日やったこと'], ['good', 'できたこと'], ['issues', '課題'], ['next', '次回・宿題']];
 
 // 振り返り1件分(確認済は灰色表示)
 export default function ReviewCard({ r, onConfirm, busy }) {
@@ -18,7 +18,7 @@ export default function ReviewCard({ r, onConfirm, busy }) {
         <p className="text-xs font-bold text-ks-sub mb-2">今日の振り返り</p>
         {SECTIONS.map(([k, label]) => (
           <div key={k} className="mb-2 last:mb-0">
-            <p className="text-xs font-bold" style={{ color: '#8A6B2E' }}>{label}</p>
+            <p className="text-xs font-bold" style={{ color: k === 'issues' ? '#C93C18' : '#8A6B2E' }}>{label}</p>
             {(r[k] || []).length
               ? <ul className="list-disc pl-5 text-sm leading-relaxed">{r[k].map((t, i) => <li key={i}>{t}</li>)}</ul>
               : <p className="text-sm text-ks-sub">(なし)</p>}

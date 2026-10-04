@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       await db.collection('reviews').doc(id).set({
         email, date, lessonKey: key,
         songTitle: String(body.songTitle || '').slice(0, 200),
-        done: clean(body.done), next: clean(body.next),
+        done: clean(body.done), good: clean(body.good), issues: clean(body.issues), next: clean(body.next),
         confirmed: false, confirmedAt: null, sentAt: FieldValue.serverTimestamp(),
       });
       // 13件目以降(古いもの)を削除
