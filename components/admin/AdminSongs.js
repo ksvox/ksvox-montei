@@ -10,7 +10,7 @@ import ShowcaseFields from './ShowcaseFields';
 import SongTagger from './SongTagger';
 import YoutubeMatcher from './YoutubeMatcher';
 
-const blank = { title: '', recommended: false, easy: false, songUrl: '', genres: [], vocal: '', moods: [], range: '', sounds: [], vibes: [], tempo: '', youtubeUrl: '' };
+const blank = { title: '', recommended: false, easy: false, songUrl: '', genres: [], vocal: '', moods: [], range: '', sounds: [], vibes: [], tempo: '', youtubeUrl: '', draft: false };
 const tg = (l, v) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]);
 
 export default function AdminSongs() {
@@ -27,14 +27,14 @@ export default function AdminSongs() {
   const load = async () => { const s = await getDocs(collection(db, 'songs')); setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.title.localeCompare(b.title))); };
   useEffect(() => { load(); }, []);
   const list = useMemo(() => songs.filter((s) => (!q || s.title.toLowerCase().includes(q.toLowerCase()))
-    && (filter === 'all' || (filter === 'tag' && !isTagged(s)) || (filter === 'yt' && !hasYoutube(s)))), [songs, q, filter]);
+    && (filter === 'all' || (filter === 'tag' && !isTagged(s)) || (filter === 'yt' && !hasYoutube(s)) || (filter === 'draft' && s.draft))), [songs, q, filter]);
   // 連続タグ付け・YouTube照合で保存した内容を一覧にも反映
   const patch = (id, data) => setSongs((l) => l.map((s) => (s.id === id ? { ...s, ...data } : s)));
 
   async function save() {
     setBusy('save');
     const data = { title: form.title.trim(), recommended: form.recommended, easy: form.easy, songUrl: form.songUrl.trim(), genres: form.genres, vocal: form.vocal, moods: form.moods, range: form.range.trim(),
-      sounds: form.sounds || [], vibes: form.vibes || [], tempo: form.tempo || '', ...youtubeFields(form.youtubeUrl) };
+      sounds: form.sounds || [], vibes: form.vibes || [], tempo: form.tempo || '', ...youtubeFields(form.youtubeUrl), draft: !!form.draft };
     try {
       let id = form.id;
       if (id) await updateDoc(doc(db, 'songs', id), data);
@@ -89,6 +89,7 @@ export default function AdminSongs() {
           <option value="all">すべて表示</option>
           <option value="tag">タグ未完了だけ</option>
           <option value="yt">YouTube未登録だけ</option>
+          <option value="draft">準備中だけ</option>
         </select>
       </div>
       {!list.length ? <Empty>曲がありません。</Empty> : (
@@ -96,6 +97,7 @@ export default function AdminSongs() {
           {list.map((s) => (
             <li key={s.id}><button className="w-full text-left px-4 py-2.5 flex items-center gap-2" onClick={() => { setForm({ ...blank, ...s }); setPdf(null); }}>
               <span className="flex-1 text-sm font-bold">{s.title}</span>
+              {s.draft && <span className="text-[10px] text-white bg-ks-sub rounded px-1.5 py-0.5 font-bold">準備中</span>}
               {!hasYoutube(s) && <span className="text-[10px] text-ks-sub font-bold">YT未</span>}
               {!isTagged(s) && <span className="text-[10px] text-ks-gold font-bold">タグ未</span>}
               {!s.hasPdf && <span className="text-[10px] text-ks-red font-bold">PDFなし</span>}
@@ -106,6 +108,10 @@ export default function AdminSongs() {
       <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? '曲を編集' : '曲を登録'}>
         {form && (
           <div>
+            <label className="flex items-start gap-2 mb-4 p-3 rounded-xl bg-white border border-ks-border text-sm">
+              <input type="checkbox" className="w-5 h-5 mt-0.5 accent-[#E54D26]" checked={!!form.draft} onChange={(e) => setForm({ ...form, draft: e.target.checked })} />
+              <span><b>準備中</b>(チェック中は門弟アプリの楽曲検索とショーケースに表示しません)</span>
+            </label>
             <Field label="曲名"><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></Field>
             <div className="flex gap-5 mb-4 text-sm">
               <label className="flex items-center gap-2"><input type="checkbox" className="w-5 h-5 accent-[#E54D26]" checked={form.recommended} onChange={(e) => setForm({ ...form, recommended: e.target.checked })} />おすすめ</label>
@@ -129,7 +135,7 @@ export default function AdminSongs() {
         )}
       </Modal>
       <SongTagger open={tagger} onClose={() => setTagger(false)} songs={songs} onSaved={patch} />
-      <YoutubeMatcher open={matcher} onClose={() => setMatcher(false)} songs={songs} onSaved={patch} />
+      <YoutubeMatcher open={matcher} onClose={() => setMatcher(false)} songs={songs} onSaved={patch} onAdded={(x) => setSongs((l) => [...l, x])} />
     </div>
   );
 }

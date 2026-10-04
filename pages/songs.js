@@ -37,7 +37,7 @@ function Songs() {
     })();
   }, [app.user.email]);
   useEffect(() => {
-    getDocs(collection(db, 'songs')).then((s) => setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
+    getDocs(collection(db, 'songs')).then((s) => setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })).filter((x) => !x.draft).sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))));
   }, []);
 
   const filtered = useMemo(() => {

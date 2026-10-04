@@ -58,6 +58,22 @@ export default handle(async (req) => {
   const key = process.env.YOUTUBE_API_KEY;
   if (!key) throw new Error('サーバーの設定(YOUTUBE_API_KEY)が未登録です。');
   const songs = (req.body?.songs || []).filter((s) => s && s.id && s.title);
+
+  // 門弟アプリに未登録の曲(YouTubeにはあるが、どの曲とも結びつかないもの)
+  if (req.body?.mode === 'unregistered') {
+    const all = req.body?.allSongs || [];
+    const linked = new Set(all.map((s) => s.youtubeId).filter(Boolean));
+    const videos = await channelVideos(key);
+    const seen = new Set();
+    const list = videos.filter((v) => {
+      if (linked.has(v.videoId) || seen.has(v.videoId)) return false;
+      seen.add(v.videoId);
+      // 曲名がほぼ同じ曲がすでに登録されていれば「登録済み」とみなす
+      return !all.some((s) => score(s.title, v.title) >= 70);
+    });
+    return { videos: list, listed: videos.length };
+  }
+
   if (!songs.length) return { results: [], searched: 0, remaining: 0 };
 
   const videos = await channelVideos(key);
