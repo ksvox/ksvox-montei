@@ -5,8 +5,12 @@ import { Chip, Field, Modal, Empty } from '../ui';
 import { GENRES, VOCALS, MOODS } from '../../lib/constants';
 import { savePdf } from '../../lib/songPdf';
 import { fileToBase64, normKey } from '../../lib/utils';
+import { isTagged, hasYoutube, youtubeFields } from '../../lib/showcaseTags';
+import ShowcaseFields from './ShowcaseFields';
+import SongTagger from './SongTagger';
+import YoutubeMatcher from './YoutubeMatcher';
 
-const blank = { title: '', recommended: false, easy: false, songUrl: '', genres: [], vocal: '', moods: [], range: '' };
+const blank = { title: '', recommended: false, easy: false, songUrl: '', genres: [], vocal: '', moods: [], range: '', sounds: [], vibes: [], tempo: '', youtubeUrl: '' };
 const tg = (l, v) => (l.includes(v) ? l.filter((x) => x !== v) : [...l, v]);
 
 export default function AdminSongs() {
@@ -16,14 +20,21 @@ export default function AdminSongs() {
   const [pdf, setPdf] = useState(null);
   const [busy, setBusy] = useState('');
   const [report, setReport] = useState('');
+  const [tagger, setTagger] = useState(false);
+  const [matcher, setMatcher] = useState(false);
+  const [filter, setFilter] = useState('all');
 
   const load = async () => { const s = await getDocs(collection(db, 'songs')); setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => a.title.localeCompare(b.title))); };
   useEffect(() => { load(); }, []);
-  const list = useMemo(() => songs.filter((s) => !q || s.title.toLowerCase().includes(q.toLowerCase())), [songs, q]);
+  const list = useMemo(() => songs.filter((s) => (!q || s.title.toLowerCase().includes(q.toLowerCase()))
+    && (filter === 'all' || (filter === 'tag' && !isTagged(s)) || (filter === 'yt' && !hasYoutube(s)))), [songs, q, filter]);
+  // 連続タグ付け・YouTube照合で保存した内容を一覧にも反映
+  const patch = (id, data) => setSongs((l) => l.map((s) => (s.id === id ? { ...s, ...data } : s)));
 
   async function save() {
     setBusy('save');
-    const data = { title: form.title.trim(), recommended: form.recommended, easy: form.easy, songUrl: form.songUrl.trim(), genres: form.genres, vocal: form.vocal, moods: form.moods, range: form.range.trim() };
+    const data = { title: form.title.trim(), recommended: form.recommended, easy: form.easy, songUrl: form.songUrl.trim(), genres: form.genres, vocal: form.vocal, moods: form.moods, range: form.range.trim(),
+      sounds: form.sounds || [], vibes: form.vibes || [], tempo: form.tempo || '', ...youtubeFields(form.youtubeUrl) };
     try {
       let id = form.id;
       if (id) await updateDoc(doc(db, 'songs', id), data);
@@ -64,12 +75,29 @@ export default function AdminSongs() {
         <input type="file" accept="application/pdf" multiple className="hidden" onChange={bulk} disabled={!!busy} />
       </label>
       {report && <p className="text-xs whitespace-pre-wrap bg-white border border-ks-border rounded-xl p-3 mb-3">{report}</p>}
-      <p className="text-xs text-ks-sub mb-2">{songs.length}曲(PDFなし:{songs.filter((s) => !s.hasPdf).length}曲)</p>
+      <div className="card p-3 mb-3">
+        <p className="text-sm font-bold mb-1">ショーケース用の準備</p>
+        <p className="text-xs text-ks-sub mb-2">タグ未完了:{songs.filter((s) => !isTagged(s)).length}曲 / YouTube未登録:{songs.filter((s) => !hasYoutube(s)).length}曲</p>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost btn-sm flex-1" onClick={() => setMatcher(true)}>YouTube自動照合</button>
+          <button className="btn btn-dark btn-sm flex-1" onClick={() => setTagger(true)}>連続タグ付けモード</button>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mb-2">
+        <p className="text-xs text-ks-sub flex-1">{songs.length}曲(PDFなし:{songs.filter((s) => !s.hasPdf).length}曲)</p>
+        <select className="text-xs border border-ks-border rounded-lg px-2 py-1 bg-white" value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <option value="all">すべて表示</option>
+          <option value="tag">タグ未完了だけ</option>
+          <option value="yt">YouTube未登録だけ</option>
+        </select>
+      </div>
       {!list.length ? <Empty>曲がありません。</Empty> : (
         <ul className="card divide-y divide-ks-border">
           {list.map((s) => (
             <li key={s.id}><button className="w-full text-left px-4 py-2.5 flex items-center gap-2" onClick={() => { setForm({ ...blank, ...s }); setPdf(null); }}>
               <span className="flex-1 text-sm font-bold">{s.title}</span>
+              {!hasYoutube(s) && <span className="text-[10px] text-ks-sub font-bold">YT未</span>}
+              {!isTagged(s) && <span className="text-[10px] text-ks-gold font-bold">タグ未</span>}
               {!s.hasPdf && <span className="text-[10px] text-ks-red font-bold">PDFなし</span>}
             </button></li>
           ))}
@@ -88,6 +116,10 @@ export default function AdminSongs() {
             <Field label="ボーカル"><div className="flex gap-2">{VOCALS.map((v) => <Chip key={v} active={form.vocal === v} onClick={() => setForm({ ...form, vocal: v })}>{v}</Chip>)}</div></Field>
             <Field label="雰囲気(複数選択可)"><div className="flex flex-wrap gap-2">{MOODS.map((m) => <Chip key={m} active={form.moods.includes(m)} onClick={() => setForm({ ...form, moods: tg(form.moods, m) })}>{m}</Chip>)}</div></Field>
             <Field label="音域レンジ"><input className="input" placeholder="例:A2-A4" value={form.range} onChange={(e) => setForm({ ...form, range: e.target.value })} /></Field>
+            <div className="border-t border-ks-border pt-4 mt-2 mb-2">
+              <p className="text-sm font-bold mb-3">ショーケース用</p>
+              <ShowcaseFields form={form} setForm={setForm} />
+            </div>
             <Field label="歌詞PDF" note={form.hasPdf ? '登録済み。選び直すと差し替えます。' : '未登録'}><input type="file" accept="application/pdf" className="block w-full text-sm" onChange={(e) => setPdf(e.target.files?.[0] || null)} /></Field>
             <div className="flex gap-2">
               {form.id && <button className="btn btn-ghost text-ks-red" onClick={() => remove(form)}>削除</button>}
@@ -96,6 +128,8 @@ export default function AdminSongs() {
           </div>
         )}
       </Modal>
+      <SongTagger open={tagger} onClose={() => setTagger(false)} songs={songs} onSaved={patch} />
+      <YoutubeMatcher open={matcher} onClose={() => setMatcher(false)} songs={songs} onSaved={patch} />
     </div>
   );
 }
