@@ -40,6 +40,13 @@ service cloud.firestore {
       match /pdf/{chunk} { allow read: if isMember(); allow write: if isAdmin(); }
     }
 
+    // 朗読見本音声(ジャケット・音声は分割して保存)
+    match /samples/{id} {
+      allow read: if isMember() || isAdmin();
+      allow write: if isAdmin();
+      match /{slot}/{chunk} { allow read: if isMember() || isAdmin(); allow write: if isAdmin(); }
+    }
+
     // 楽曲のダウンロード数(人数)。会員は数の追加だけできる
     match /songStats/{songId} {
       allow read: if isMember();

@@ -83,7 +83,7 @@ export default function AdminLinks({ kind }) {
               <>
                 <Field label="アプリ名"><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
                 <Field label="説明文"><input className="input" value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} /></Field>
-                <Field label="リンク先"><input className="input" placeholder="https://..." value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
+                <Field label="リンク先" note="門弟アプリ内のページは /samples(朗読見本音声)のように「/」から入力します。"><input className="input" placeholder="https://..." value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
                 <Field label="カードの色"><input type="color" className="w-16 h-10 rounded border border-ks-border" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
                 <Field label="生徒限定">
                   <label className="flex items-start gap-2 text-sm">

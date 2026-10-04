@@ -63,6 +63,8 @@ function Home() {
 
   // 生徒限定アプリは、その場で通行証を付けて開く
   async function openApp(e, a) {
+    // 門弟アプリ内のページ(/samples など)はそのまま移動
+    if (a.url && a.url.startsWith('/')) { e.preventDefault(); router.push(a.url); return; }
     if (!a.restricted || !a.url) return;
     e.preventDefault();
     const w = window.open('', '_blank');

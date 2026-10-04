@@ -7,12 +7,12 @@ import AdminPosts from '../components/admin/AdminPosts';
 import AdminRoster from '../components/admin/AdminRoster';
 import AdminLinks from '../components/admin/AdminLinks';
 import AdminSettings from '../components/admin/AdminSettings';
-import AdminImport from '../components/admin/AdminImport';
 import AdminDojo from '../components/admin/AdminDojo';
+import AdminSamples from '../components/admin/AdminSamples';
 
 const TABS = [
   ['news', 'お知らせ'], ['dojo', '道場カレンダー'], ['roster', '会員名簿'], ['songs', '楽曲管理'], ['posts', '投稿管理'],
-  ['videos', '動画'], ['apps', 'アプリ'], ['settings', '設定'], ['import', '引っ越し'],
+  ['samples', '朗読見本'], ['videos', '動画'], ['apps', 'アプリ'], ['settings', '設定'],
 ];
 
 function Admin() {
@@ -27,10 +27,10 @@ function Admin() {
       {tab === 'roster' && <AdminRoster />}
       {tab === 'songs' && <AdminSongs />}
       {tab === 'posts' && <AdminPosts />}
+      {tab === 'samples' && <AdminSamples />}
       {tab === 'videos' && <AdminLinks kind="videos" />}
       {tab === 'apps' && <AdminLinks kind="appLinks" />}
       {tab === 'settings' && <AdminSettings />}
-      {tab === 'import' && <AdminImport />}
     </>
   );
 }

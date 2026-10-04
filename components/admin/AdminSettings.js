@@ -58,7 +58,7 @@ export default function AdminSettings() {
           <div className="mb-3">
             <div className="h-3 rounded-full bg-stone-200 overflow-hidden"><div className="h-full bg-ks-gold" style={{ width: `${Math.max(1, (usage.total / usage.limit) * 100)}%` }} /></div>
             <p className="text-sm mt-2 font-bold">約{mb(usage.total)}MB / 1024MB({((usage.total / usage.limit) * 100).toFixed(1)}%)</p>
-            <p className="text-xs text-ks-sub mt-1">楽曲・歌詞 {mb(usage.parts.songs)}MB/歌詞カード保管庫 {mb(usage.parts.vault)}MB/会員・カレンダー {mb(usage.parts.members)}MB/投稿 {mb(usage.parts.posts)}MB/その他 {mb(usage.parts.other)}MB</p>
+            <p className="text-xs text-ks-sub mt-1">楽曲・歌詞 {mb(usage.parts.songs)}MB/朗読見本 {mb(usage.parts.samples || 0)}MB/歌詞カード保管庫 {mb(usage.parts.vault)}MB/会員・カレンダー {mb(usage.parts.members)}MB/投稿 {mb(usage.parts.posts)}MB/その他 {mb(usage.parts.other)}MB</p>
           </div>
         )}
         <button className="btn btn-ghost btn-sm" disabled={!!busy} onClick={measure}>{busy === 'usage' ? '計測中…' : '計測する'}</button>
