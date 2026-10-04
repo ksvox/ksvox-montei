@@ -18,7 +18,7 @@ export default function AdminLinks({ kind }) {
   async function save() {
     setBusy(true);
     const data = isApp
-      ? { name: form.name.trim(), desc: form.desc.trim(), url: form.url.trim(), color: form.color, icon: form.icon || '' }
+      ? { name: form.name.trim(), desc: form.desc.trim(), url: form.url.trim(), color: form.color, icon: form.icon || '', restricted: !!form.restricted }
       : { title: form.title.trim(), url: form.url.trim() };
     try {
       if (form.id) await updateDoc(doc(db, kind, form.id), data);
@@ -52,7 +52,7 @@ export default function AdminLinks({ kind }) {
     <div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs text-ks-sub">{isApp ? 'トップに並ぶアプリのカードです。' : 'YouTubeの限定公開動画のURLを登録します。'}</p>
-        <button className="btn btn-primary btn-sm shrink-0" onClick={() => setForm(isApp ? { name: '', desc: '', url: '', color: '#C5A059', icon: '' } : { title: '', url: '' })}>追加</button>
+        <button className="btn btn-primary btn-sm shrink-0" onClick={() => setForm(isApp ? { name: '', desc: '', url: '', color: '#C5A059', icon: '', restricted: false } : { title: '', url: '' })}>追加</button>
       </div>
       {!items.length ? (
         <div>
@@ -69,7 +69,7 @@ export default function AdminLinks({ kind }) {
               </div>
               {isApp && (it.icon ? <img src={it.icon} alt="" className="w-8 h-8 rounded-full" /> : <span className="w-8 h-8 rounded-full" style={{ background: it.color }} />)}
               <button className="flex-1 min-w-0 text-left" onClick={() => setForm({ ...it })}>
-                <span className="block text-sm font-bold truncate">{it.name || it.title}</span>
+                <span className="block text-sm font-bold truncate">{it.name || it.title}{isApp && it.restricted && <span className="ml-1.5 text-[10px] font-bold text-white bg-ks-red rounded-full px-1.5 py-0.5 align-middle">生徒限定</span>}</span>
                 <span className={`block text-xs truncate ${it.url ? 'text-ks-sub' : 'text-ks-red'}`}>{it.url || 'リンク先が未入力です'}</span>
               </button>
             </li>
@@ -85,6 +85,12 @@ export default function AdminLinks({ kind }) {
                 <Field label="説明文"><input className="input" value={form.desc} onChange={(e) => setForm({ ...form, desc: e.target.value })} /></Field>
                 <Field label="リンク先"><input className="input" placeholder="https://..." value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} /></Field>
                 <Field label="カードの色"><input type="color" className="w-16 h-10 rounded border border-ks-border" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} /></Field>
+                <Field label="生徒限定">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input type="checkbox" className="mt-1" checked={!!form.restricted} onChange={(e) => setForm({ ...form, restricted: e.target.checked })} />
+                    <span>門弟アプリ経由でのみ開けるようにする<span className="block text-xs text-ks-sub">課題曲AIソムリエ・朗読AIコーチ・Song Ripple用。ブックマークからは開けなくなります。</span></span>
+                  </label>
+                </Field>
                 <Field label="アイコン画像">
                   <div className="flex items-center gap-3">
                     {form.icon ? <img src={form.icon} alt="" className="w-12 h-12 rounded-full" /> : <span className="w-12 h-12 rounded-full" style={{ background: form.color }} />}

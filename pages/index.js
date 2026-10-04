@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { collection, getDocs, orderBy, query, limit, where } from 'firebase/firestore';
-import { db } from '../lib/firebaseClient';
+import { db, api } from '../lib/firebaseClient';
 import Layout from '../components/Layout';
 import { useApp } from '../components/AppContext';
 import AnnouncementList from '../components/Announcements';
@@ -60,6 +60,22 @@ function Home() {
   const showReserve = day >= 15 && !priv.reminders[`${ym}-reserve`];
   const showPay = day >= 20 && !priv.reminders[`${ym}-pay`];
   const done = (key) => app.updatePriv({ reminders: { [`${ym}-${key}`]: true } });
+
+  // 生徒限定アプリは、その場で通行証を付けて開く
+  async function openApp(e, a) {
+    if (!a.restricted || !a.url) return;
+    e.preventDefault();
+    const w = window.open('', '_blank');
+    try {
+      const { pass } = await api('/api/app-pass');
+      const u = new URL(a.url);
+      u.searchParams.set('kspass', pass);
+      if (w) { w.opener = null; w.location.href = u.toString(); } else window.location.href = u.toString();
+    } catch (err) {
+      if (w) w.close();
+      alert(err.message);
+    }
+  }
 
   const archiveAuthor = (p) => memberMap[p.authorUid] || memberByEmail[(p.authorEmail || '').toLowerCase()] || null;
 
@@ -126,7 +142,7 @@ function Home() {
         <Section title="K's VOXのアプリ">
           <div className="grid grid-cols-2 gap-3">
             {apps.map((a) => (
-              <a key={a.id} href={a.url || '#'} target="_blank" rel="noreferrer" className="press card p-3.5 flex flex-col" style={{ borderTop: `4px solid ${a.color || '#C5A059'}` }}>
+              <a key={a.id} href={a.url || '#'} target="_blank" rel="noreferrer" onClick={(e) => openApp(e, a)} className="press card p-3.5 flex flex-col" style={{ borderTop: `4px solid ${a.color || '#C5A059'}` }}>
                 <div className="flex items-center gap-2 mb-2">
                   {a.icon ? <img src={a.icon} alt="" className="w-9 h-9 rounded-full object-cover" /> : <span className="w-9 h-9 rounded-full" style={{ background: a.color }} />}
                   <span className="font-bold text-sm leading-tight">{a.name}</span>
