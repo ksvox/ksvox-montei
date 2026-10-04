@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SAMPLE_SLOTS, SLOT_LABEL, slotLabel, parseSampleFileName, saveSampleAudio, deleteSampleAudio, saveSampleImage, loadSampleDocs } from '../../lib/samples';
 import { compressImage, fileToBase64 } from '../../lib/utils';
-import { Modal, Spinner } from '../ui';
+import { Spinner } from '../ui';
 
 const byId = Object.fromEntries(SAMPLE_SLOTS.map((s) => [s.id, s]));
 const MAX_MB = 8;
@@ -94,6 +94,35 @@ export default function AdminSamples() {
           {busy === 'bulk' ? progress : 'MP3ファイルをまとめて選ぶ'}
           <input type="file" accept="audio/mpeg,audio/mp3,.mp3,audio/*" multiple className="hidden" onChange={pickBulk} disabled={!!busy} />
         </label>
+
+        {plan && (
+          <div className="mt-4 rounded-xl border-2 border-ks-gold bg-ks-goldlight/40 p-3">
+            <p className="font-bold text-sm">登録内容の確認</p>
+            <p className="text-xs text-ks-sub mt-0.5 mb-3">
+              {plan.ok.length}件を登録できます{plan.ng.length ? `(登録しないファイル ${plan.ng.length}件)` : ''}。内容を確認して「この内容で登録する」を押してください。
+            </p>
+            <div className="flex gap-2 mb-3">
+              <button className="btn btn-primary flex-1" disabled={!!busy || !plan.ok.length} onClick={runBulk}>{busy === 'bulk' ? progress : 'この内容で登録する'}</button>
+              <button className="btn btn-ghost" disabled={!!busy} onClick={() => setPlan(null)}>やめる</button>
+            </div>
+            {plan.ok.length > 0 && (
+              <ul className="text-xs bg-white border border-ks-border rounded-lg divide-y divide-ks-border max-h-64 overflow-y-auto">
+                {plan.ok.map((it) => (
+                  <li key={it.file.name} className="px-3 py-1.5 flex justify-between gap-2">
+                    <span className="truncate">{it.file.name}</span>
+                    <span className="shrink-0 font-bold">→ {slotLabel(byId[it.id])}{byId[it.id].intro ? '' : ` ${SLOT_LABEL[it.slot]}`}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {plan.ng.length > 0 && (
+              <div className="text-xs text-ks-red mt-3 max-h-40 overflow-y-auto">
+                <p className="font-bold mb-1">登録しないファイル</p>
+                {plan.ng.map((n) => <p key={n}>{n}</p>)}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <ul className="card divide-y divide-ks-border">
@@ -133,28 +162,6 @@ export default function AdminSamples() {
       </ul>
       <p className="text-xs text-ks-sub mt-2 px-1">※ジャケットはカラー版を登録してください(音読の再生時は自動でモノクロになります)。</p>
 
-      <Modal open={!!plan} onClose={() => !busy && setPlan(null)} title="登録内容の確認" wide>
-        {plan && (
-          <div>
-            <p className="text-sm mb-3">{plan.ok.length}件を次の枠に登録します。</p>
-            <ul className="text-xs border border-ks-border rounded-lg divide-y divide-ks-border mb-3 max-h-[45vh] overflow-y-auto">
-              {plan.ok.map((it) => (
-                <li key={it.file.name} className="px-3 py-1.5 flex justify-between gap-2">
-                  <span className="truncate">{it.file.name}</span>
-                  <span className="shrink-0 font-bold">→ {slotLabel(byId[it.id])}{byId[it.id].intro ? '' : ` ${SLOT_LABEL[it.slot]}`}</span>
-                </li>
-              ))}
-            </ul>
-            {plan.ng.length > 0 && (
-              <div className="text-xs text-ks-red mb-3">
-                <p className="font-bold mb-1">登録しないファイル({plan.ng.length}件)</p>
-                {plan.ng.map((n) => <p key={n}>{n}</p>)}
-              </div>
-            )}
-            <button className="btn btn-primary w-full" disabled={!!busy || !plan.ok.length} onClick={runBulk}>{busy === 'bulk' ? progress : 'この内容で登録する'}</button>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }
