@@ -7,6 +7,7 @@ import { useApp } from '../components/AppContext';
 import Calendar from '../components/Calendar';
 import Messages from '../components/Messages';
 import Vault from '../components/Vault';
+import Reviews from '../components/Reviews';
 import { Avatar, Field, Modal, RankSeal, displayName } from '../components/ui';
 import { compressImage } from '../lib/utils';
 
@@ -82,6 +83,7 @@ function MyPage() {
         </div>
       </div>
       {!me?.nickname && <p className="text-sm bg-ks-goldlight border border-[#EBDDBE] rounded-xl px-4 py-3 mb-6">はじめに「プロフィールを編集」から、アイコン・名前・ニックネーム・電話番号・生年月日を登録してください。</p>}
+      <Reviews />
       <Calendar />
       <Messages />
       <Vault />

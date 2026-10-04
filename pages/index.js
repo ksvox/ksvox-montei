@@ -10,6 +10,7 @@ import { Section, Avatar, displayName, Empty } from '../components/ui';
 import { AI_NOTES } from '../lib/constants';
 import { fmtDate, youtubeId } from '../lib/utils';
 import { loadStats, topSongs } from '../lib/songStats';
+import { loadMyReviews } from '../lib/reviews';
 
 const ICONS = {
   music: 'M9 18V5l12-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zm12-2a3 3 0 11-6 0 3 3 0 016 0z',
@@ -39,6 +40,7 @@ function Home() {
   const [forum, setForum] = useState([]);
   const [unread, setUnread] = useState(0);
   const [popular, setPopular] = useState([]);
+  const [newReviews, setNewReviews] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -49,6 +51,7 @@ function Home() {
     load(query(collection(db, 'archive'), orderBy('createdAt', 'desc'), limit(3)), setArchive);
     load(query(collection(db, 'forumPosts'), orderBy('createdAt', 'desc'), limit(3)), setForum);
     loadStats().then((st) => setPopular(topSongs(st, 3))).catch(console.error);
+    loadMyReviews(app.user.email).then((l) => setNewReviews(l.filter((r) => !r.confirmed).length)).catch(console.error);
     getDocs(query(collection(db, 'messages'), where('to', '==', app.user.uid)))
       .then((s) => setUnread(s.docs.filter((d) => !d.data().read && !(d.data().hiddenFor || []).includes(app.user.uid)).length))
       .catch(console.error);
@@ -100,8 +103,14 @@ function Home() {
         </Link>
       )}
 
-      {(showReserve || showPay) && (
+      {(showReserve || showPay || newReviews > 0) && (
         <div className="space-y-3 mb-7">
+          {newReviews > 0 && (
+            <div className="rounded-2xl bg-ks-goldlight border border-[#EBDDBE] p-4">
+              <p className="font-bold mb-3">新しい振り返りが届いています{newReviews > 1 ? `(${newReviews}件)` : ''}</p>
+              <Link href="/mypage#reviews" className="btn btn-dark btn-sm w-full">振り返りを見る</Link>
+            </div>
+          )}
           {showReserve && (
             <div className="rounded-2xl bg-ks-goldlight border border-[#EBDDBE] p-4">
               <p className="font-bold mb-3">今月のレッスン予約はしましたか?</p>

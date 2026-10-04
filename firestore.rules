@@ -47,6 +47,13 @@ service cloud.firestore {
       match /{slot}/{chunk} { allow read: if isMember() || isAdmin(); allow write: if isAdmin(); }
     }
 
+    // レッスンの振り返り(稽古帳からサーバー経由で届く。本人だけが読めて「確認済」だけ変更できる)
+    match /reviews/{id} {
+      allow read: if isAdmin() || (isMember() && resource.data.email == myEmail());
+      allow update: if isMember() && resource.data.email == myEmail() && onlyChanges(['confirmed', 'confirmedAt']);
+      allow create, delete: if false;
+    }
+
     // 楽曲のダウンロード数(人数)。会員は数の追加だけできる
     match /songStats/{songId} {
       allow read: if isMember();
