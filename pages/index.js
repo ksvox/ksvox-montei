@@ -9,7 +9,7 @@ import AnnouncementList from '../components/Announcements';
 import { Section, Avatar, displayName, Empty } from '../components/ui';
 import { AI_NOTES } from '../lib/constants';
 import { fmtDate, youtubeId } from '../lib/utils';
-import { loadStats, topSongs } from '../lib/songStats';
+const SHOWCASE_URL = 'https://showcase.ksvox.net/';
 import { loadMyReviews } from '../lib/reviews';
 
 const ICONS = {
@@ -39,7 +39,6 @@ function Home() {
   const [archive, setArchive] = useState([]);
   const [forum, setForum] = useState([]);
   const [unread, setUnread] = useState(0);
-  const [popular, setPopular] = useState([]);
   const [newReviews, setNewReviews] = useState(0);
   const router = useRouter();
 
@@ -50,7 +49,6 @@ function Home() {
     load(query(collection(db, 'videos'), orderBy('order')), setVideos);
     load(query(collection(db, 'archive'), orderBy('createdAt', 'desc'), limit(3)), setArchive);
     load(query(collection(db, 'forumPosts'), orderBy('createdAt', 'desc'), limit(3)), setForum);
-    loadStats().then((st) => setPopular(topSongs(st, 3))).catch(console.error);
     loadMyReviews(app.user.email).then((l) => setNewReviews(l.filter((r) => !r.confirmed).length)).catch(console.error);
     getDocs(query(collection(db, 'messages'), where('to', '==', app.user.uid)))
       .then((s) => setUnread(s.docs.filter((d) => !d.data().read && !(d.data().hiddenFor || []).includes(app.user.uid)).length))
@@ -169,20 +167,11 @@ function Home() {
         </Section>
       )}
 
-      <div role="link" tabIndex={0} className="press card overflow-hidden mb-5 cursor-pointer" onClick={() => router.push('/songs')} onKeyDown={(e) => e.key === 'Enter' && router.push('/songs')}>
-        <CardHead icon="music" title="オリジナル楽曲検索" link="検索する" tint="#F8F3E8" color="#C5A059" />
+      <div className="card overflow-hidden mb-5">
+        <CardHead icon="music" title="オリジナル楽曲検索" link="" tint="#F8F3E8" color="#C5A059" />
         <div className="px-5 pt-3 pb-4">
-          <p className="text-sm text-ks-sub leading-relaxed">K's VOX RECORDのオリジナル英語曲をジャンル・雰囲気で検索し、歌詞をダウンロードできます。</p>
-          {popular.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs font-bold text-ks-sub mb-1.5">よくダウンロードされている曲</p>
-              <ul className="divide-y divide-ks-border border-t border-ks-border">
-                {popular.map((p) => (
-                  <li key={p.id}><Link href={`/songs?q=${encodeURIComponent(p.title || '')}`} onClick={(e) => e.stopPropagation()} className="row block py-2.5 px-1 font-bold text-[15px] truncate">{p.title}</Link></li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <p className="text-sm text-ks-sub leading-relaxed">Showcaseアプリから楽曲検索ができます。歌詞をダウンロードしたい場合は必ず下のボタンからアプリを開いてください。</p>
+          <a href={SHOWCASE_URL} onClick={(e) => openApp(e, { restricted: true, url: SHOWCASE_URL })} className="btn btn-primary w-full mt-3">Showcaseアプリを開く</a>
         </div>
       </div>
 
