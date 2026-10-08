@@ -9,10 +9,11 @@ import AdminLinks from '../components/admin/AdminLinks';
 import AdminSettings from '../components/admin/AdminSettings';
 import AdminDojo from '../components/admin/AdminDojo';
 import AdminSamples from '../components/admin/AdminSamples';
+import AdminBanners from '../components/admin/AdminBanners';
 
 const TABS = [
   ['news', 'お知らせ'], ['dojo', '道場カレンダー'], ['roster', '会員名簿'], ['songs', '楽曲管理'], ['posts', '投稿管理'],
-  ['samples', '朗読見本'], ['videos', '動画'], ['apps', 'アプリ'], ['settings', '設定'],
+  ['samples', '朗読見本'], ['videos', '動画'], ['apps', 'アプリ'], ['banners', 'バナー'], ['settings', '設定'],
 ];
 
 function Admin() {
@@ -30,6 +31,7 @@ function Admin() {
       {tab === 'samples' && <AdminSamples />}
       {tab === 'videos' && <AdminLinks kind="videos" />}
       {tab === 'apps' && <AdminLinks kind="appLinks" />}
+      {tab === 'banners' && <AdminBanners />}
       {tab === 'settings' && <AdminSettings />}
     </>
   );
