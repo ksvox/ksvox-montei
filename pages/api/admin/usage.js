@@ -20,7 +20,7 @@ export default handle(async (req) => {
   add('members', await db.collection('roster').get());
   for (const c of ['announcements', 'forumPosts', 'archive', 'messages', 'reviews']) add('posts', await db.collection(c).get());
   add('posts', await db.collectionGroup('replies').get());
-  for (const c of ['settings', 'appLinks', 'videos']) add('other', await db.collection(c).get());
+  for (const c of ['settings', 'appLinks', 'videos', 'adBanners', 'koeshiruStats']) add('other', await db.collection(c).get());
   const total = Object.values(parts).reduce((a, b) => a + b, 0);
   return { total, parts, limit: 1024 * 1024 * 1024 };
 });
