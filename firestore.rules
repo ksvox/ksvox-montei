@@ -47,6 +47,14 @@ service cloud.firestore {
       match /{slot}/{chunk} { allow read: if isMember() || isAdmin(); allow write: if isAdmin(); }
     }
 
+    // レッスン予約(書き込みはサーバーだけ。予約の中身は本人と先生だけが読める)
+    match /bookings/{id} {
+      allow read: if isAdmin() || (isMember() && resource.data.uid == me());
+      allow write: if false;
+    }
+    // 月ごとの埋まり具合(名前は入っていない。会員なら誰でも読める)
+    match /reserveMonths/{ym} { allow read: if isMember() || isAdmin(); allow write: if false; }
+
     // レッスンの振り返り(稽古帳からサーバー経由で届く。本人だけが読めて「確認済」だけ変更できる)
     match /reviews/{id} {
       allow read: if isAdmin() || (isMember() && resource.data.email == myEmail());

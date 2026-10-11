@@ -1,23 +1,33 @@
 import { useEffect, useMemo, useState } from 'react';
-import { addDoc, collection, deleteDoc, doc, getDocs, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { useRouter } from 'next/router';
+import { addDoc, collection, deleteDoc, doc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../lib/firebaseClient';
 import { useApp } from './AppContext';
 import { Chip, Empty, Field, Modal } from './ui';
 import { EVENT_TYPES } from '../lib/constants';
 import { ymd } from '../lib/utils';
 import { DOJO_TYPES, expandRange, fmtDay, fmtRange } from '../lib/dateRange';
+import { KIND_LABEL, rangeLabel } from '../lib/reserve';
 
 const TYPE = Object.fromEntries(EVENT_TYPES.map((t) => [t.key, t]));
 const DOJO = Object.fromEntries(DOJO_TYPES.map((t) => [t.key, t]));
 const WD = ['日', '月', '火', '水', '木', '金', '土'];
 
 export const fmtEventDate = fmtDay;
+// 予約システムの予約を、マイカレンダーの予定と同じ形にする(押すと予約ページへ)
+const fromBooking = (b) => ({
+  id: 'bk-' + b.id, booking: true, date: b.date, endDate: '', type: b.kind === 'lesson' ? 'lesson' : 'practice',
+  time: b.slots[0], timeLabel: rangeLabel(b.slots), label: `${KIND_LABEL[b.kind]}(予約)`, memo: '',
+});
+const labelOf = (e) => e.label || TYPE[e.type]?.label;
 const endOf = (e) => (e.endDate && e.endDate >= e.date ? e.endDate : e.date);
 
 export default function Calendar() {
   const app = useApp();
   const uid = app.user.uid;
+  const router = useRouter();
   const [events, setEvents] = useState([]);
+  const [booked, setBooked] = useState([]);
   const [dojo, setDojo] = useState([]);
   const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [day, setDay] = useState(null);
@@ -29,15 +39,16 @@ export default function Calendar() {
   };
   useEffect(() => {
     load();
+    getDocs(query(collection(db, 'bookings'), where('uid', '==', uid))).then((s) => setBooked(s.docs.map((d) => fromBooking({ id: d.id, ...d.data() })))).catch(console.error);
     getDocs(collection(db, 'dojoEvents')).then((s) => setDojo(s.docs.map((d) => ({ id: d.id, ...d.data() })))).catch(console.error);
   }, []);
 
   const byDate = useMemo(() => {
     const m = {};
-    events.forEach((e) => expandRange(e.date, e.endDate).forEach((ds) => { (m[ds] = m[ds] || []).push(e); }));
+    [...events, ...booked].forEach((e) => expandRange(e.date, e.endDate).forEach((ds) => { (m[ds] = m[ds] || []).push(e); }));
     Object.values(m).forEach((l) => l.sort((a, b) => (a.time || '99').localeCompare(b.time || '99')));
     return m;
-  }, [events]);
+  }, [events, booked]);
   const dojoByDate = useMemo(() => {
     const m = {};
     dojo.forEach((e) => expandRange(e.start, e.end).forEach((ds) => { (m[ds] = m[ds] || []).push(e); }));
@@ -45,7 +56,7 @@ export default function Calendar() {
   }, [dojo]);
 
   const today = ymd(new Date());
-  const upcoming = events.filter((e) => endOf(e) >= today)
+  const upcoming = [...events, ...booked].filter((e) => endOf(e) >= today)
     .sort((a, b) => (a.date + (a.time || '99')).localeCompare(b.date + (b.time || '99'))).slice(0, 5);
 
   const y = cursor.getFullYear(), mo = cursor.getMonth();
@@ -66,8 +77,8 @@ export default function Calendar() {
     if (!confirm('この予定を削除しますか?')) return;
     await deleteDoc(doc(db, 'users', uid, 'events', form.id)); setForm(null); await load();
   }
-  const openNew = (date) => setForm({ date, endDate: '', type: 'lesson', time: '19:00', noTime: false, memo: '', origMemo: '' });
-  const openEdit = (e) => setForm({ ...e, endDate: e.endDate || '', noTime: !e.time, time: e.time || '19:00', memo: e.memo || '', origMemo: e.memo || '' });
+  const openNew = (date) => setForm({ date, endDate: '', type: 'practice', time: '19:00', noTime: false, memo: '', origMemo: '' });
+  const openEdit = (e) => (e.booking ? router.push('/reserve') : setForm({ ...e, endDate: e.endDate || '', noTime: !e.time, time: e.time || '19:00', memo: e.memo || '', origMemo: e.memo || '' }));
 
   return (
     <>
@@ -79,8 +90,8 @@ export default function Calendar() {
               <li key={e.id}><button className="w-full flex items-center gap-3 px-4 py-3 text-left" onClick={() => openEdit(e)}>
                 <span className="w-1.5 self-stretch rounded-full" style={{ background: TYPE[e.type]?.color }} />
                 <span className="flex-1">
-                  <span className="block text-sm font-bold">{fmtRange(e.date, e.endDate)} {e.time || ''}</span>
-                  <span className="block text-xs text-ks-sub">{TYPE[e.type]?.label}{e.memo ? `・${e.memo.split('\n')[0].slice(0, 24)}` : ''}</span>
+                  <span className="block text-sm font-bold">{fmtRange(e.date, e.endDate)} {e.timeLabel || e.time || ''}</span>
+                  <span className="block text-xs text-ks-sub">{labelOf(e)}{e.memo ? `・${e.memo.split('\n')[0].slice(0, 24)}` : ''}</span>
                 </span>
                 {e.appended && <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" title="追記済み" />}
               </button></li>
@@ -153,7 +164,7 @@ export default function Calendar() {
                 {byDate[day].map((e) => (
                   <li key={e.id}><button className="card w-full text-left px-4 py-3 flex items-center gap-3" onClick={() => openEdit(e)}>
                     <span className="w-1.5 self-stretch rounded-full" style={{ background: TYPE[e.type]?.color }} />
-                    <span className="flex-1"><b className="text-sm">{TYPE[e.type]?.label}</b> <span className="text-sm text-ks-sub">{e.time || '時間指定なし'}</span>
+                    <span className="flex-1"><b className="text-sm">{labelOf(e)}</b> <span className="text-sm text-ks-sub">{e.timeLabel || e.time || '時間指定なし'}</span>
                       {e.endDate && e.endDate > e.date && <span className="block text-xs text-ks-sub">{fmtRange(e.date, e.endDate)}</span>}
                       {e.memo && <span className="block text-xs text-ks-sub mt-1 whitespace-pre-wrap line-clamp-3">{e.memo}</span>}</span>
                     {e.appended && <span className="text-[10px] text-emerald-700 font-bold">追記済み</span>}
@@ -173,7 +184,7 @@ export default function Calendar() {
               <Field label="開始日"><input type="date" className="input" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
               <Field label="終了日(複数日の時)"><input type="date" className="input" min={form.date} value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} /></Field>
             </div>
-            <Field label="種類"><div className="flex gap-2">{EVENT_TYPES.map((t) => <Chip key={t.key} active={form.type === t.key} onClick={() => setForm({ ...form, type: t.key })}>{t.label}</Chip>)}</div></Field>
+            <Field label="種類" note="レッスンは予約ページから予約すると、自動でここに表示されます。"><div className="flex gap-2">{EVENT_TYPES.filter((t) => t.key !== 'lesson' || form.type === 'lesson').map((t) => <Chip key={t.key} active={form.type === t.key} onClick={() => setForm({ ...form, type: t.key })}>{t.label}</Chip>)}</div></Field>
             <Field label="時間">
               <div className="flex items-center gap-3">
                 <input type="time" className="input" disabled={form.noTime} value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} />

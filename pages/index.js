@@ -114,7 +114,7 @@ function Home() {
               <p className="font-bold mb-3">今月のレッスン予約はしましたか?</p>
               <div className="flex gap-2">
                 <button className="btn btn-dark btn-sm flex-1" onClick={() => done('reserve')}>予約しました👍</button>
-                <a className="btn btn-ghost btn-sm flex-1" href={settings.reserveUrl} target="_blank" rel="noreferrer">まだです😓</a>
+                <Link className="btn btn-ghost btn-sm flex-1" href="/reserve">まだです😓</Link>
               </div>
             </div>
           )}
@@ -135,11 +135,11 @@ function Home() {
       </Section>
 
       <div className="space-y-4 mb-8">
-        <a href={settings.reserveUrl} target="_blank" rel="noreferrer" className="press block rounded-[22px] bg-ks-red text-white p-5 shadow-md">
+        <Link href="/reserve" className="press block rounded-[22px] bg-ks-red text-white p-5 shadow-md">
           <p className="font-serif font-bold text-xl">レッスン/個人練習を予約する</p>
-          <p className="text-sm text-white/90 mt-1.5">予約はLINEから行います。押すと予約ページが開きます。</p>
+          <p className="text-sm text-white/90 mt-1.5">カレンダーから日にちと時間を選んで予約できます。</p>
           <span className="inline-block mt-4 bg-white text-ks-red font-bold text-sm rounded-full px-5 py-2">予約ページを開く</span>
-        </a>
+        </Link>
         <a href={settings.paypayUrl} className="press block rounded-[22px] text-white p-5 shadow-md" style={{ background: '#2A7F86' }}>
           <p className="font-serif font-bold text-xl">月謝を支払う</p>
           <p className="text-sm text-white/90 mt-1.5">月謝はPayPayを利用します。アプリを開いたら『送る』から、ID『nobu_ksvox』宛てに送金してください。</p>
