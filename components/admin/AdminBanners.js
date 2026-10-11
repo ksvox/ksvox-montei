@@ -1,6 +1,8 @@
-// Showcase・コエシルのトップに出すバナー(画像とリンク先)
+// Showcase・コエシルなどに出すバナー(画像とリンク先)
+// 画像はサーバーを通さず直接データベースに保存する(大きな通信がサーバーの手前で止められるため)
 import { useEffect, useState } from 'react';
-import { api } from '../../lib/firebaseClient';
+import { collection, doc, getDocs, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db } from '../../lib/firebaseClient';
 import { compressImage } from '../../lib/utils';
 import { BANNER_SLOTS } from '../../lib/constants';
 
@@ -13,7 +15,7 @@ function Slot({ slot, initial, onSaved }) {
   async function pick(e) {
     const file = e.target.files?.[0]; if (!file) return;
     setBusy('img'); setNote('');
-    try { setF({ ...f, image: await compressImage(file, { maxSize: 1200, maxBytes: 450000, quality: 0.9 }) }); }
+    try { setF({ ...f, image: await compressImage(file, { maxSize: 1200, maxBytes: 400000, quality: 0.9 }) }); }
     catch (ex) { alert(ex.message); }
     setBusy('');
   }
@@ -22,7 +24,10 @@ function Slot({ slot, initial, onSaved }) {
     if (!/^https?:\/\//.test(f.link.trim())) { setNote('リンク先は https:// から始まるアドレスを入れてください。'); return; }
     setBusy('save'); setNote('');
     try {
-      await api('/api/admin/banners', { slot: slot.key, link: f.link.trim(), active: f.active, ...(f.image !== undefined ? { image: f.image } : {}) });
+      await setDoc(doc(db, 'adBanners', slot.key), {
+        link: f.link.trim(), active: f.active, updatedAt: serverTimestamp(),
+        ...(f.image !== undefined ? { image: f.image } : {}),
+      }, { merge: true });
       setNote('保存しました。各アプリには1〜2分ほどで反映されます。');
       onSaved && onSaved();
     } catch (e) { setNote('保存できませんでした:' + e.message); }
@@ -52,7 +57,13 @@ function Slot({ slot, initial, onSaved }) {
 export default function AdminBanners() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
-  function load() { api('/api/admin/banners', { mode: 'list' }).then((r) => setData(r.banners || {})).catch((e) => setErr(e.message)); }
+  function load() {
+    getDocs(collection(db, 'adBanners')).then((snap) => {
+      const out = {};
+      snap.docs.forEach((d) => { const x = d.data(); out[d.id] = { link: x.link || '', active: x.active !== false, image: x.image || '' }; });
+      setData(out);
+    }).catch((e) => setErr('読み込めませんでした:' + e.message));
+  }
   useEffect(load, []);
   return (
     <div>

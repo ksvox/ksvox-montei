@@ -29,6 +29,7 @@ service cloud.firestore {
     }
 
     // 先生だけが書き込むもの
+    match /adBanners/{slot} { allow read, write: if isAdmin(); } // バナー(公開用の読み出しはサーバー経由)
     match /settings/{docId} { allow read: if isMember(); allow write: if isAdmin(); }
     match /announcements/{id} { allow read: if isMember(); allow write: if isAdmin(); }
     match /appLinks/{id} { allow read: if isMember(); allow write: if isAdmin(); }
