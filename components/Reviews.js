@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useApp } from './AppContext';
-import ReviewCard from './ReviewCard';
+import ReviewList from './ReviewList';
 import { Section, Empty } from './ui';
 import { confirmReview, loadMyReviews } from '../lib/reviews';
 
-// マイページ: レッスンの振り返り(直近4件)
+// マイページ: レッスンの振り返り(最新の1件+まだ確認していないもの)
 export default function Reviews() {
   const app = useApp();
   const [list, setList] = useState(null);
@@ -33,7 +33,7 @@ export default function Reviews() {
         : !list.length ? <div className="card"><Empty>まだ振り返りは届いていません。</Empty></div>
           : (
             <div className="space-y-3">
-              {list.slice(0, 4).map((r) => <ReviewCard key={r.id} r={r} onConfirm={confirm} busy={busy === r.id} />)}
+              <ReviewList list={list.filter((r, i) => i === 0 || !r.confirmed)} onConfirm={confirm} busyId={busy} />
               <Link href="/reviews" className="btn btn-ghost btn-sm w-full">→過去の振り返り</Link>
               <p className="text-[11px] text-ks-sub text-center">※12件以上は自動で削除されます。</p>
             </div>
