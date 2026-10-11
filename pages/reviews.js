@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Layout from '../components/Layout';
 import { useApp } from '../components/AppContext';
-import ReviewCard from '../components/ReviewCard';
+import ReviewList from '../components/ReviewList';
 import { Empty, Spinner } from '../components/ui';
 import { REVIEW_KEEP, confirmReview, loadMyReviews } from '../lib/reviews';
 
@@ -24,7 +24,7 @@ function PastReviews() {
     <>
       <Link href="/mypage" className="link inline-block mb-4">← マイページに戻る</Link>
       {!list.length ? <div className="card"><Empty>まだ振り返りは届いていません。</Empty></div> : (
-        <div className="space-y-3">{list.slice(0, REVIEW_KEEP).map((r) => <ReviewCard key={r.id} r={r} onConfirm={confirm} busy={busy === r.id} />)}</div>
+        <ReviewList list={list.slice(0, REVIEW_KEEP)} onConfirm={confirm} busyId={busy} />
       )}
       <p className="text-[11px] text-ks-sub mt-4 text-center">※{REVIEW_KEEP}件以上は自動で削除されます。</p>
     </>
