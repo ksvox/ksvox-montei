@@ -89,7 +89,7 @@ async function book(req, ctx) {
   const out = { ok: true, id: bref.id };
   try {
     const calendarId = calendarFor(kind);
-    const ev = await gcalCreate({ calendarId, date, slots, summary: `${KIND_LABEL[kind]} ${b.name}`, description: `${cls || ''} 門弟アプリからの予約` });
+    const ev = await gcalCreate({ calendarId, date, slots, summary: b.name, description: `${KIND_LABEL[kind]}(${minutesLabel(slots)}) ${cls || ''} 門弟アプリからの予約` });
     if (ev) await bref.update({ gcalEventId: ev, gcalCalendarId: calendarId });
   } catch (e) { console.error(e); await bref.update({ gcalError: e.message }).catch(() => {}); }
   try { await mailBooked(req, b); } catch (e) { console.error(e); out.mailError = '予約は完了しましたが、確認メールを送れませんでした。'; }
