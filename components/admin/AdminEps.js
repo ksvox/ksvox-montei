@@ -1,12 +1,43 @@
 // EP管理:テーマ文・ジャケット・曲順・並び順。曲順はYouTubeの再生リストから読み込める
 import { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
-import { api, db } from '../../lib/firebaseClient';
+import { auth, db } from '../../lib/firebaseClient';
 import { compressImage } from '../../lib/utils';
 import { Modal } from '../ui';
-import { analyzePlaylist, baseTitle } from '../../lib/epMatch';
+import { analyzePlaylist, baseTitle, norm } from '../../lib/epMatch';
 
 const EP_TRACKS = 5; // EPはすべて5曲
+
+// サーバーとの通信。失敗した時は、状態コードと返事の一部も表示する(原因が分かるように)。一時的な不調は自動で2回までやり直す
+async function call(path, body) {
+  const headers = { 'Content-Type': 'application/json' };
+  const payload = { ...(body || {}) };
+  const user = auth.currentUser;
+  if (user) {
+    const token = await user.getIdToken();
+    headers.Authorization = 'Bearer ' + token;
+    headers['X-Id-Token'] = token;
+    payload._idToken = token;
+  }
+  let last = '';
+  for (let i = 0; i < 3; i++) {
+    try {
+      const res = await fetch(path, { method: 'POST', headers, body: JSON.stringify(payload) });
+      const text = await res.text();
+      let data = {};
+      try { data = JSON.parse(text); } catch (e) { /* JSONではない返事 */ }
+      if (res.ok) return data;
+      if (data.error) throw Object.assign(new Error(data.error), { final: true });
+      last = `通信に失敗しました(状態コード ${res.status}${text ? ':' + text.replace(/\s+/g, ' ').slice(0, 80) : ''})`;
+      if (![502, 503, 504].includes(res.status)) break;
+    } catch (e) {
+      if (e.final) throw e;
+      last = '通信に失敗しました(' + (e.message || '接続できません') + ')';
+    }
+    await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+  }
+  throw new Error(last);
+}
 
 function move(list, i, d) {
   const j = i + d;
@@ -30,7 +61,7 @@ export default function AdminEps() {
   async function loadAll() {
     setErr('');
     try {
-      const [r, s] = await Promise.all([api('/api/admin/eps', { mode: 'list' }), getDocs(collection(db, 'songs'))]);
+      const [r, s] = await Promise.all([call('/api/admin/eps', { mode: 'list' }), getDocs(collection(db, 'songs'))]);
       setEps(r.eps || []);
       setSongs(s.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (e) { setErr(e.message); }
@@ -45,7 +76,7 @@ export default function AdminEps() {
   async function fetchPlaylists(playlistUrl) {
     setBusy('pl'); setPls(null); setNames({});
     try {
-      const r = await api('/api/admin/youtube-playlists', playlistUrl ? { playlistId: playlistUrl } : {});
+      const r = await call('/api/admin/youtube-playlists', playlistUrl ? { playlistId: playlistUrl } : {});
       setPls(r.playlists || []); setPlTotal(r.total || (r.playlists || []).length);
     } catch (e) { alert(e.message); }
     setBusy('');
@@ -56,18 +87,21 @@ export default function AdminEps() {
   const skipped = (pls || []).length - proposals.length;
 
   const nameOf = (a) => (names[a.id] ?? a.name).trim();
-  const warnings = (a) => {
-    const w = []; const n = nameOf(a);
-    if (a.tracks.length !== EP_TRACKS) w.push(`この再生リストは${a.tracks.length}曲です(EPは${EP_TRACKS}曲)`);
+  // block=登録できない理由 / note=登録はできるが、知っておいてほしいこと
+  const issues = (a) => {
+    const n = nameOf(a); const block = []; const note = [];
     const un = a.tracks.filter((t) => !t.song).length;
-    if (un) w.push(`${un}曲が登録済みの曲と結びつきません。曲の編集画面でYouTube URLを確認してください`);
-    if (!n) w.push('EP名を入れてください');
+    if (un) block.push(`${un}曲が登録済みの曲と結びつきません。曲の編集画面でYouTube URLを確認してください`);
+    if (!n) block.push('EP名を入れてください');
+    if (n && regNames.has(n)) block.push('同じ名前のEPがすでに登録されています');
+    if (a.tracks.length !== EP_TRACKS) note.push(`取得できたのは${a.tracks.length}曲です(EPは${EP_TRACKS}曲)。登録したあと、EPの編集画面で足りない曲を追加できます`);
+    if (a.reported && a.reported > a.tracks.length) note.push(`YouTubeでは${a.reported}曲と表示されていますが、取得できたのは${a.tracks.length}曲です${a.skipped ? `(非公開・削除済みなどで読み込めなかった動画:${a.skipped}本)` : '(非公開や地域制限などで、読み込めない動画がある可能性があります)'}`);
     const diff = a.tracks.filter((t) => t.song && (t.song.release || '').trim() && (t.song.release || '').trim() !== n);
-    if (diff.length) w.push(`${diff.length}曲の「収録作品」がこのEP名と違います(曲の編集画面で直せます)`);
-    if (n && regNames.has(n)) w.push('同じ名前のEPがすでに登録されています');
-    return w;
+    if (diff.length) note.push(`${diff.length}曲の「収録作品」がこのEP名と違います(曲の編集画面で直せます)`);
+    return { block, note };
   };
-  const ok = (a) => warnings(a).length === 0;
+  const ok = (a) => issues(a).block.length === 0;
+  const clean = (a) => { const i = issues(a); return !i.block.length && !i.note.length; };
 
   async function decide(a) {
     const n = nameOf(a);
@@ -76,7 +110,7 @@ export default function AdminEps() {
     for (const t of a.tracks) {
       if (!(t.song.release || '').trim()) await updateDoc(doc(db, 'songs', t.song.id), { release: n });
     }
-    await api('/api/admin/eps', { mode: 'save', name: n, tracks: ids, playlistId: a.id });
+    await call('/api/admin/eps', { mode: 'save', name: n, tracks: ids, playlistId: a.id });
   }
   async function decideOne(a) {
     setBusy('d' + a.id);
@@ -84,7 +118,7 @@ export default function AdminEps() {
     setBusy('');
   }
   async function decideAll() {
-    const list = proposals.filter(ok);
+    const list = proposals.filter(clean);
     if (!list.length) return;
     if (!confirm(`問題のない${list.length}件のEPを、まとめて登録しますか?`)) return;
     setBusy('all');
@@ -97,13 +131,13 @@ export default function AdminEps() {
     const list = move(eps, i, d);
     if (list === eps) return;
     setEps(list);
-    try { await api('/api/admin/eps', { mode: 'order', ids: list.map((e) => e.id) }); } catch (e) { alert(e.message); loadAll(); }
+    try { await call('/api/admin/eps', { mode: 'order', ids: list.map((e) => e.id) }); } catch (e) { alert(e.message); loadAll(); }
   }
 
   async function openEdit(ep) {
-    setEdit({ ep, theme: ep.theme, tracks: ep.tracks.filter((id) => byId[id]), jacket: undefined, preview: '', busy: '' });
+    setEdit({ ep, theme: ep.theme, tracks: ep.tracks.filter((id) => byId[id]), jacket: undefined, preview: '', busy: '', addQ: '', addId: '' });
     if (ep.hasJacket) {
-      try { const r = await api('/api/admin/eps', { mode: 'get', id: ep.id }); setEdit((e) => (e && e.ep.id === ep.id ? { ...e, preview: r.image } : e)); } catch (e) { /* noop */ }
+      try { const r = await call('/api/admin/eps', { mode: 'get', id: ep.id }); setEdit((e) => (e && e.ep.id === ep.id ? { ...e, preview: r.image } : e)); } catch (e) { /* noop */ }
     }
   }
   async function pickJacket(e) {
@@ -117,14 +151,33 @@ export default function AdminEps() {
   async function saveEdit() {
     setEdit((x) => ({ ...x, busy: 'save' }));
     try {
-      await api('/api/admin/eps', { mode: 'save', id: edit.ep.id, name: edit.ep.name, theme: edit.theme, tracks: edit.tracks, ...(edit.jacket !== undefined ? { image: edit.jacket } : {}) });
+      // 収録作品が空欄の曲には、EP名を入れてそろえる
+      for (const id of edit.tracks) {
+        const s = byId[id];
+        if (s && !(s.release || '').trim()) await updateDoc(doc(db, 'songs', id), { release: edit.ep.name });
+      }
+      await call('/api/admin/eps', { mode: 'save', id: edit.ep.id, name: edit.ep.name, theme: edit.theme, tracks: edit.tracks });
+      if (edit.jacket !== undefined) {
+        try { await call('/api/admin/eps', { mode: 'jacket', id: edit.ep.id, image: edit.jacket }); }
+        catch (e) { alert('テーマと曲順は保存しましたが、ジャケットだけ保存できませんでした:' + e.message); }
+      }
       setEdit(null); await loadAll();
     } catch (e) { alert('保存できませんでした:' + e.message); setEdit((x) => ({ ...x, busy: '' })); }
   }
   async function deleteEp() {
     if (!confirm(`「${edit.ep.name}」の登録を削除しますか?(曲そのものは消えません)`)) return;
-    try { await api('/api/admin/eps', { mode: 'delete', id: edit.ep.id }); setEdit(null); await loadAll(); } catch (e) { alert(e.message); }
+    try { await call('/api/admin/eps', { mode: 'delete', id: edit.ep.id }); setEdit(null); await loadAll(); } catch (e) { alert(e.message); }
   }
+
+  // 編集画面で「曲を追加」できる候補(このEPの曲、収録作品が空欄の曲、その他の順)
+  const addCands = useMemo(() => {
+    if (!edit) return [];
+    const have = new Set(edit.tracks);
+    const q = norm(edit.addQ || '');
+    const rank = (s) => { const r = (s.release || '').trim(); return r === edit.ep.name ? 0 : r ? 2 : 1; };
+    return songs.filter((s) => !have.has(s.id) && (!q || norm(baseTitle(s.title)).includes(q)))
+      .sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title)).slice(0, 60);
+  }, [edit, songs]);
 
   // ---------- 曲の「収録作品」はあるが、EPとして未登録のもの ----------
   const candidates = useMemo(() => {
@@ -135,7 +188,7 @@ export default function AdminEps() {
   }, [songs, regNames]);
   async function makeFromSongs(c) {
     setBusy('c' + c.name);
-    try { await api('/api/admin/eps', { mode: 'save', name: c.name, tracks: c.list.map((s) => s.id) }); await loadAll(); } catch (e) { alert(e.message); }
+    try { await call('/api/admin/eps', { mode: 'save', name: c.name, tracks: c.list.map((s) => s.id) }); await loadAll(); } catch (e) { alert(e.message); }
     setBusy('');
   }
 
@@ -159,9 +212,9 @@ export default function AdminEps() {
         {pls && (
           <div className="mt-3">
             <p className="text-xs text-ks-sub mb-2">{`再生リスト${plTotal}件のうち、曲が結びついたEPの候補:${proposals.length}件${skipped > 0 ? `(登録済みや該当なしの${skipped}件は省いています)` : ''}`}</p>
-            {proposals.length > 0 && <button className="btn btn-dark btn-sm w-full mb-3" disabled={!!busy || !proposals.some(ok)} onClick={decideAll}>{busy === 'all' ? '登録中…' : `問題のない${proposals.filter(ok).length}件をまとめて決定`}</button>}
+            {proposals.length > 0 && <button className="btn btn-dark btn-sm w-full mb-3" disabled={!!busy || !proposals.some(clean)} onClick={decideAll}>{busy === 'all' ? '登録中…' : `問題のない${proposals.filter(clean).length}件をまとめて決定`}</button>}
             {proposals.map((a) => {
-              const w = warnings(a);
+              const w = issues(a);
               return (
                 <div key={a.id} className="card p-3 mb-3">
                   <label className="block text-xs font-bold text-ks-sub mb-1">EP名(曲の「収録作品」と同じ名前にします)</label>
@@ -175,7 +228,8 @@ export default function AdminEps() {
                       </li>
                     ))}
                   </ol>
-                  {w.map((x) => <p key={x} className="text-xs text-ks-red mb-1">・{x}</p>)}
+                  {w.block.map((x) => <p key={x} className="text-xs text-ks-red mb-1">・{x}</p>)}
+                  {w.note.map((x) => <p key={x} className="text-xs text-ks-sub mb-1">・{x}</p>)}
                   <button className="btn btn-primary btn-sm w-full mt-1" disabled={!!busy || !ok(a)} onClick={() => decideOne(a)}>{busy === 'd' + a.id ? '登録中…' : 'このEPを決定'}</button>
                 </div>
               );
@@ -208,7 +262,7 @@ export default function AdminEps() {
             </div>
             <button className="flex-1 min-w-0 text-left" onClick={() => openEdit(ep)}>
               <p className="font-bold text-sm truncate">{ep.name}</p>
-              <p className="text-xs text-ks-sub truncate">{ep.tracks.length}曲 / {ep.theme ? ep.theme : 'テーマ未入力'}{ep.hasJacket ? '' : ' / ジャケット未登録'}</p>
+              <p className="text-xs text-ks-sub truncate">{ep.tracks.length}曲{ep.tracks.length !== EP_TRACKS ? '(5曲ではありません)' : ''} / {ep.theme ? ep.theme : 'テーマ未入力'}{ep.hasJacket ? '' : ' / ジャケット未登録'}</p>
             </button>
           </li>
         ))}
@@ -226,17 +280,28 @@ export default function AdminEps() {
             <input type="file" accept="image/*" className="text-sm w-full mb-1" onChange={pickJacket} disabled={!!edit.busy} />
             {edit.preview && <button className="text-xs underline text-ks-sub mb-3" onClick={() => setEdit({ ...edit, jacket: '', preview: '' })}>ジャケットを外す</button>}
 
-            <p className="text-sm font-bold text-ks-sub mt-3 mb-1">曲順</p>
+            <p className="text-sm font-bold text-ks-sub mt-3 mb-1">曲順({edit.tracks.length}曲)</p>
             <ol className="mb-3">
               {edit.tracks.map((id, i) => (
-                <li key={id} className="flex items-center gap-2 py-1 border-t border-ks-border first:border-t-0">
+                <li key={id} className="flex items-center gap-1 py-1 border-t border-ks-border first:border-t-0">
                   <span className="w-5 text-right text-ks-sub text-sm shrink-0">{i + 1}</span>
                   <span className="flex-1 min-w-0 truncate text-sm">{baseTitle(byId[id]?.title)}{byId[id]?.draft ? '(準備中)' : ''}</span>
                   <button className="text-xs px-2 disabled:opacity-30" disabled={i === 0} onClick={() => setEdit({ ...edit, tracks: move(edit.tracks, i, -1) })} aria-label="上へ">▲</button>
                   <button className="text-xs px-2 disabled:opacity-30" disabled={i === edit.tracks.length - 1} onClick={() => setEdit({ ...edit, tracks: move(edit.tracks, i, 1) })} aria-label="下へ">▼</button>
+                  <button className="text-xs px-2 text-ks-red" onClick={() => setEdit({ ...edit, tracks: edit.tracks.filter((x) => x !== id) })} aria-label="この曲を外す">✕</button>
                 </li>
               ))}
             </ol>
+
+            <div className="rounded-lg border border-ks-border p-2 mb-3">
+              <p className="text-xs font-bold text-ks-sub mb-1">曲を追加する</p>
+              <input className="input mb-2" placeholder="曲名で絞り込む" value={edit.addQ} onChange={(e) => setEdit({ ...edit, addQ: e.target.value, addId: '' })} />
+              <select className="input mb-2" value={edit.addId} onChange={(e) => setEdit({ ...edit, addId: e.target.value })}>
+                <option value="">曲を選んでください</option>
+                {addCands.map((s) => <option key={s.id} value={s.id}>{baseTitle(s.title)}{(s.release || '').trim() ? `(${s.release})` : ''}{s.draft ? '【準備中】' : ''}</option>)}
+              </select>
+              <button className="btn btn-ghost btn-sm w-full" disabled={!edit.addId} onClick={() => setEdit({ ...edit, tracks: [...edit.tracks, edit.addId], addId: '', addQ: '' })}>この曲を最後に追加(▲▼で位置を直せます)</button>
+            </div>
 
             <div className="flex gap-2">
               <button className="btn btn-ghost btn-sm" disabled={!!edit.busy} onClick={deleteEp}>削除</button>

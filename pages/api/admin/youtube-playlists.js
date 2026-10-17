@@ -20,19 +20,20 @@ async function yt(path, params, key) {
 // 再生リストの中身(曲順どおり)
 async function playlistItems(playlistId, key) {
   const out = [];
+  let skipped = 0; // 非公開・削除済みなどで中身を読めなかった動画
   let pageToken = '';
   for (let n = 0; n < 3; n++) {
     const j = await yt('playlistItems', { part: 'snippet', playlistId, maxResults: '50', ...(pageToken ? { pageToken } : {}) }, key);
     for (const it of j.items || []) {
       const videoId = it.snippet?.resourceId?.videoId;
       const title = decode(it.snippet?.title);
-      if (!videoId || /^(private|deleted) video$/i.test(title)) continue;
+      if (!videoId || /^(private|deleted) video$/i.test(title)) { skipped += 1; continue; }
       out.push({ videoId, title, position: it.snippet?.position ?? out.length });
     }
     pageToken = j.nextPageToken;
     if (!pageToken) break;
   }
-  return out.sort((a, b) => a.position - b.position).map(({ videoId, title }) => ({ videoId, title }));
+  return { items: out.sort((a, b) => a.position - b.position).map(({ videoId, title }) => ({ videoId, title })), skipped };
 }
 
 // チャンネルの再生リスト一覧(出てこない時は検索で探す)
@@ -74,12 +75,12 @@ export default handle(async (req) => {
   if (req.body?.playlistId) {
     const id = parseId(req.body.playlistId);
     if (!id) throw Object.assign(new Error('再生リストのURLとして読み取れません。'), { status: 400 });
-    const [meta, items] = await Promise.all([
+    const [meta, got] = await Promise.all([
       yt('playlists', { part: 'snippet,contentDetails', id }, key).catch(() => ({ items: [] })),
       playlistItems(id, key),
     ]);
     const p = meta.items?.[0];
-    return { playlists: [{ id, title: decode(p?.snippet?.title) || '', count: items.length, items }] };
+    return { playlists: [{ id, title: decode(p?.snippet?.title) || '', count: p?.contentDetails?.itemCount ?? got.items.length, items: got.items, skipped: got.skipped }] };
   }
 
   // チャンネルの再生リストをすべて(2曲未満のシングルは中身を読まない)
@@ -87,7 +88,10 @@ export default handle(async (req) => {
   const targets = pls.filter((p) => p.count === null || p.count >= 2);
   const result = [];
   for (let i = 0; i < targets.length; i += 8) {
-    const part = await Promise.all(targets.slice(i, i + 8).map(async (p) => ({ ...p, items: await playlistItems(p.id, key).catch(() => []) })));
+    const part = await Promise.all(targets.slice(i, i + 8).map(async (p) => {
+      const got = await playlistItems(p.id, key).catch(() => ({ items: [], skipped: 0 }));
+      return { ...p, items: got.items, skipped: got.skipped };
+    }));
     result.push(...part);
   }
   return { playlists: result.filter((p) => p.items.length), total: pls.length };

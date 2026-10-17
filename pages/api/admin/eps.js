@@ -1,6 +1,8 @@
 // EP(収録作品)の情報:テーマ文・曲順・並び順・ジャケット(管理者専用)
 import { handle, verifyRequest, adminDb, FieldValue } from '../../../lib/firebaseAdmin';
 
+export const config = { api: { bodyParser: { sizeLimit: '4mb' } } };
+
 const bad = (m, s = 400) => Object.assign(new Error(m), { status: s });
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -25,6 +27,16 @@ export default handle(async (req) => {
     if (!ID.test(String(b.id || ''))) throw bad('EPの指定が正しくありません。');
     const d = await jackets.doc(String(b.id)).get();
     return { image: d.exists ? d.data().image || '' : '' };
+  }
+
+  if (b.mode === 'jacket') {
+    if (!ID.test(String(b.id || ''))) throw bad('EPの指定が正しくありません。');
+    const image = String(b.image || '');
+    if (!image) { await jackets.doc(String(b.id)).delete(); return { ok: true }; }
+    if (!/^data:image\/(png|jpeg|webp);base64,/.test(image)) throw bad('画像の形式が正しくありません。');
+    if (image.length > 800000) throw bad('画像が大きすぎます。もう少し小さい画像を選んでください。');
+    await jackets.doc(String(b.id)).set({ image, updatedAt: FieldValue.serverTimestamp() });
+    return { ok: true };
   }
 
   if (b.mode === 'order') {
