@@ -10,11 +10,12 @@ import AdminSettings from '../components/admin/AdminSettings';
 import AdminDojo from '../components/admin/AdminDojo';
 import AdminSamples from '../components/admin/AdminSamples';
 import AdminBanners from '../components/admin/AdminBanners';
+import AdminEps from '../components/admin/AdminEps';
 import AdminKoeshiru from '../components/admin/AdminKoeshiru';
 import AdminReserve from '../components/admin/AdminReserve';
 
 const TABS = [
-  ['news', 'お知らせ'], ['reserve', '予約'], ['dojo', '道場カレンダー'], ['roster', '会員名簿'], ['songs', '楽曲管理'], ['posts', '投稿管理'],
+  ['news', 'お知らせ'], ['reserve', '予約'], ['dojo', '道場カレンダー'], ['roster', '会員名簿'], ['songs', '楽曲管理'], ['eps', 'EP'], ['posts', '投稿管理'],
   ['samples', '朗読見本'], ['videos', '動画'], ['apps', 'アプリ'], ['banners', 'バナー'], ['koeshiru', 'コエシル'], ['settings', '設定'],
 ];
 
@@ -30,6 +31,7 @@ function Admin() {
       {tab === 'dojo' && <AdminDojo />}
       {tab === 'roster' && <AdminRoster />}
       {tab === 'songs' && <AdminSongs />}
+      {tab === 'eps' && <AdminEps />}
       {tab === 'posts' && <AdminPosts />}
       {tab === 'samples' && <AdminSamples />}
       {tab === 'videos' && <AdminLinks kind="videos" />}
