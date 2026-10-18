@@ -82,6 +82,7 @@ export default function AdminSongs() {
 
   return (
     <div>
+      <a className="btn btn-dark btn-sm w-full mb-3" href="https://singflex.ksvox.net/admin" target="_blank" rel="noreferrer">SingFlex管理を開く</a>
       <div className="flex gap-2 mb-3">
         <input className="input" placeholder="曲名で探す" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn btn-primary btn-sm shrink-0" onClick={() => { setForm({ ...blank }); setPdf(null); }}>新規登録</button>

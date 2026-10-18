@@ -10,6 +10,7 @@ import { Section, Avatar, displayName, Empty } from '../components/ui';
 import { AI_NOTES } from '../lib/constants';
 import { fmtDate, youtubeId } from '../lib/utils';
 const SHOWCASE_URL = 'https://showcase.ksvox.net/';
+const SINGFLEX_URL = 'https://singflex.ksvox.net/';
 import { loadMyReviews } from '../lib/reviews';
 
 const ICONS = {
@@ -18,12 +19,13 @@ const ICONS = {
   chat: 'M21 12a8 8 0 01-11.6 7.1L4 20l1.1-4.6A8 8 0 1121 12z',
 };
 
-function CardHead({ icon, title, link, tint, color }) {
+function CardHead({ icon, img, title, link, tint, color }) {
   return (
     <div className="flex items-center gap-2.5 px-4 py-3 border-b" style={{ background: tint, borderColor: 'rgba(44,40,37,.06)' }}>
+      {img ? <img src={img} alt="" className="w-8 h-8 rounded-full shrink-0 object-cover" /> : (
       <span className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: color }}>
         <svg viewBox="0 0 24 24" className="w-[18px] h-[18px]" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={ICONS[icon]} /></svg>
-      </span>
+      </span>)}
       <p className="font-serif font-bold text-lg flex-1">{title}</p>
       <span className="link shrink-0">{link}</span>
     </div>
@@ -168,10 +170,18 @@ function Home() {
       )}
 
       <div className="card overflow-hidden mb-5">
-        <CardHead icon="music" title="オリジナル楽曲検索" link="" tint="#F8F3E8" color="#C5A059" />
+        <CardHead img="/icons/showcase.png" title="オリジナル楽曲検索" link="" tint="#F8F3E8" color="#C5A059" />
         <div className="px-5 pt-3 pb-4">
           <p className="text-sm text-ks-sub leading-relaxed">Showcaseアプリから楽曲検索ができます。歌詞をダウンロードしたい場合は必ず下のボタンからアプリを開いてください。</p>
           <a href={SHOWCASE_URL} onClick={(e) => openApp(e, { restricted: true, url: SHOWCASE_URL })} className="btn btn-primary w-full mt-3">Showcaseアプリを開く</a>
+        </div>
+      </div>
+
+      <div className="card overflow-hidden mb-5">
+        <CardHead img="/icons/singflex.png" title="K's VOX RECORDカラオケ" link="" tint="#FBF6E2" color="#C5A059" />
+        <div className="px-5 pt-3 pb-4">
+          <p className="text-sm text-ks-sub leading-relaxed">SingFlexアプリでは、公開中のオリジナル英語曲をカラオケにできます(英語歌唱のアドバイスあり)。</p>
+          <a href={SINGFLEX_URL} onClick={(e) => openApp(e, { restricted: true, url: SINGFLEX_URL })} className="btn btn-primary w-full mt-3">SingFlexアプリを開く</a>
         </div>
       </div>
 
